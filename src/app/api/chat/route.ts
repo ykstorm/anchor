@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Retrieve relevant RAG chunks (k=6, score floor 0.30)
-  let chunks = []
+  let chunks: Awaited<ReturnType<typeof retrieveChunks>> = []
   try {
     chunks = await retrieveChunks(latestMsg, 6)
   } catch (err) {

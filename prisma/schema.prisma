@@ -10,8 +10,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Use DIRECT_URL for migrations (bypasses pooler), DATABASE_URL for runtime
-  url      = env("DATABASE_URL")
 }
 
 // ── Entity Models ─────────────────────────────────────────────────────────────
