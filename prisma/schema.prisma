@@ -1,0 +1,112 @@
+// This is your Prisma schema file.
+// Extensions required: pgvector (for vector search)
+//
+// Run: npx prisma migrate dev
+// After adding new models, regenerate: npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Use DIRECT_URL for migrations (bypasses pooler), DATABASE_URL for runtime
+  url      = env("DATABASE_URL")
+}
+
+// ── Entity Models ─────────────────────────────────────────────────────────────
+
+model Project {
+  id              String   @id @default(cuid())
+  projectName     String
+  builderName     String
+  microMarket     String
+  minPrice        Float
+  maxPrice        Float
+  configurations  String?
+  possessionDate  DateTime
+  amenities       String[]
+  honestConcern   String?
+  analystNote     String?
+  priceNote       String?
+  decisionTag     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([microMarket])
+  @@index([builderName])
+}
+
+// Builder trust profile — sensitive fields (contactPhone, contactEmail,
+// commissionRatePct, partnerStatus) are intentionally excluded from AI context.
+model Builder {
+  id                  String   @id @default(cuid())
+  builderName         String   @unique
+  brandName           String
+  deliveryScore       Float
+  reraScore           Float
+  qualityScore        Float
+  financialScore      Float
+  responsivenessScore Float
+  totalTrustScore     Float
+  grade               String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Locality {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  yoyGrowthPct    Float
+  demandScore     Float
+  avgPricePerSqft Float
+  updatedAt       DateTime @updatedAt
+}
+
+model Infrastructure {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  type           String
+  priceImpactPct Float
+  sourceUrl      String
+  createdAt      DateTime @default(now())
+}
+
+// Operator-curated POI inventory for grounding amenity queries.
+// category values: 'park' | 'hospital' | 'atm' | 'bank' | 'school' |
+// 'mall' | 'club' | 'temple' | 'transport'
+model LocationData {
+  id          String   @id @default(cuid())
+  category    String
+  name        String
+  microMarket String
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, name, microMarket])
+  @@index([category])
+  @@index([microMarket])
+  @@index([category, microMarket])
+}
+
+// ── RAG ───────────────────────────────────────────────────────────────────────
+
+// Embedding table — stores OpenAI text-embedding-3-small vectors (1536 dim).
+// Each row is a semantic chunk of an entity, upserted on create/update.
+//
+// Score floor: 0.30 cosine similarity (0.20 for amenity-category queries).
+// @@unique constraint ensures one embedding per (sourceType, sourceId) pair.
+model Embedding {
+  id         String                      @id @default(cuid())
+  sourceType String                      // 'project' | 'builder' | 'locality' | 'infra' | 'location_data'
+  sourceId   String
+  content    String                      @db.Text
+  embedding  Unsupported("vector(1536)")
+  tokens     Int
+  createdAt  DateTime                    @default(now())
+  updatedAt  DateTime                    @updatedAt
+
+  @@unique([sourceType, sourceId])
+  @@index([sourceType, sourceId])
+}
