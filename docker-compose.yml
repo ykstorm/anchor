@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag_password
+      POSTGRES_DB: rag_starter
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rag']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgvector_data:
