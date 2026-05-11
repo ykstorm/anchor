@@ -33,13 +33,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Retrieve relevant RAG chunks (k=6, score floor 0.30)
-  let chunks: Awaited<ReturnType<typeof retrieveChunks>> = []
+  let chunks: Awaited<ReturnType<typeof retrieveChunks>>
   try {
     chunks = await retrieveChunks(latestMsg, 6)
   } catch (err) {
     console.error('[RAG] Retrieval error:', err)
     // Graceful degradation — return empty chunks rather than failing
-    chunks = []
+    chunks = [] as typeof chunks
   }
 
   return NextResponse.json({
