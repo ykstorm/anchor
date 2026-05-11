@@ -1,31 +1,32 @@
-# RAG Starter — Next.js 15 + Prisma + pgvector
+# rag-starter
 
-A production-ready RAG (Retrieval-Augmented Generation) template built with:
+**Production-ready RAG template for Next.js 15 + Prisma + pgvector.**  
+Retrieval-Augmented Generation pipeline with 0.30 cosine similarity score floor, adaptive K, and idempotent upsert. Extracted from Homesty.ai's buyerchat — deployed in production, handling real queries.
+
+---
+
+## Stack
 
 - **Next.js 15** (App Router) + **React 19** + **TypeScript**
-- **Prisma 7** with **Neon serverless Postgres** + **pgvector**
+- **Prisma 7** + **Neon serverless Postgres** + **pgvector**
 - **OpenAI embeddings** (`text-embedding-3-small`)
 - **Score floor**: 0.30 cosine similarity (configurable)
 
-## Quick Start
+---
+
+## Install
 
 ```bash
-# 1. Clone and install
+git clone https://github.com/ykstorm/rag-starter && cd rag-starter
 npm install
-
-# 2. Set up environment
 cp .env.example .env
 # Fill in DATABASE_URL and OPENAI_API_KEY
-
-# 3. Apply migrations (requires pgvector extension on DB)
 npx prisma migrate dev
-
-# 4. Generate Prisma client
 npx prisma generate
-
-# 5. Run dev server
 npm run dev
 ```
+
+---
 
 ## Architecture
 
@@ -37,7 +38,7 @@ scripts/
   embed-backfill.ts # Bulk embed all records
 ```
 
-### Retrieval Pipeline
+### Retrieval pipeline
 
 `retrieveChunks(query, k=6)`:
 1. Embed query with OpenAI `text-embedding-3-small`
@@ -45,7 +46,7 @@ scripts/
 3. Filter by similarity ≥ 0.30 (amenity queries: ≥ 0.20)
 4. Amenity-category queries get adaptive K (10 vs 6) + location boost
 
-### Embedding Pipeline
+### Embedding pipeline
 
 `embed-{entity}()` functions per entity type:
 - `chunkForProject()` — price, possession, amenities, analyst notes
@@ -54,18 +55,24 @@ scripts/
 - `chunkForInfra()` — infrastructure items with price impact
 - `chunkForLocationData()` — amenity POIs with category-first phrasing
 
-### Score Floor
+### Score floor
 
-Cosine similarity floor is **0.30** by default. Configured in `retriever.ts`:
+Cosine similarity floor is **0.30** by default:
 - Normal queries: `simFloor = 0.30`, `k = 6`
-- Amenity queries: `simFloor = 0.20`, `k = 10` (higher recall)
+- Amenity queries: `simFloor = 0.20`, `k = 10` (higher recall for amenity searches)
 
-## Environment Variables
+Configurable in `retriever.ts`.
+
+---
+
+## Environment variables
 
 ```env
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+DATABASE_URL=postgresql://user:***@host/db?sslmode=require
 OPENAI_API_KEY=sk-...
 ```
+
+---
 
 ## Scripts
 
@@ -74,10 +81,8 @@ npm run embed:backfill      # Embed all existing records
 npm run embed:backfill -- --dry  # Estimate tokens without embedding
 ```
 
-## Tech Stack
+---
 
-- Next.js 15.2.9 + React 19.2.4
-- Prisma 7 + `@prisma/adapter-neon`
-- OpenAI 6.x (`text-embedding-3-small`)
-- js-tiktoken for token counting
-- Vercel AI SDK 6 (streaming ready)
+## License
+
+Apache 2.0 — see [LICENSE](./LICENSE).
