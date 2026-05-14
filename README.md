@@ -113,7 +113,7 @@ OPENAI_API_KEY=sk-...                                          # OpenAI key
 
 ## What this project proves
 
-For a fresher/junior full-stack role, this shows I can:
+For a founding-engineer / senior IC role, this shows I can:
 
 - Build RAG pipelines from scratch (not just copy a tutorial)
 - Work with pgvector and understand cosine similarity vs other distance metrics
@@ -125,4 +125,10 @@ For a fresher/junior full-stack role, this shows I can:
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE)
+Licensed under the Apache License 2.0 — see [LICENSE](LICENSE).
+
+## About
+
+**Lakshyaraj Singh Rao** — Founding Engineer · AI Systems · Full-Stack · Jaipur → Bangalore + Mumbai + Remote
+
+Portfolio: lakshyaraj.dev (coming) · GitHub: [@ykstorm](https://github.com/ykstorm) · LinkedIn: [/in/lakshyaraj](https://linkedin.com/in/lakshyaraj) · Email: raolakshyaraj@gmail.com
