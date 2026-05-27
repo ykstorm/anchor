@@ -20,6 +20,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV OPENAI_API_KEY="sk-placeholder-replace-at-runtime"
 RUN npm ci \
  && npx prisma generate \
  && npm run build
