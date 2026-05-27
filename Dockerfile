@@ -40,7 +40,6 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 anchor
 
 # Public assets + Next standalone runtime
-COPY --from=builder --chown=anchor:nodejs /app/public ./public
 COPY --from=builder --chown=anchor:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=anchor:nodejs /app/.next/static ./.next/static
 
