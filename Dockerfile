@@ -9,7 +9,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci --only=production --ignore-scripts \
+RUN DATABASE_URL="postgresql://ci:ci@localhost:5432/anchor" npm ci --only=production --ignore-scripts \
  && npx prisma generate
 
 # ---------- Stage 2: build ----------
@@ -49,7 +49,7 @@ COPY --from=builder --chown=anchor:nodejs /app/node_modules/@prisma/client ./nod
 
 # Embed-writer scripts (so `docker compose exec app npm run seed` works)
 COPY --from=builder --chown=anchor:nodejs /app/scripts ./scripts
-COPY --from=builder --chown=anchor:nodejs /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder --chown=anchor:nodejs /app/node_modules ./node_modules
 
 USER anchor
 

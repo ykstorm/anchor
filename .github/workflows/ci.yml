@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: DATABASE_URL="postgresql://ci:ci@localhost:5432/anchor" npx prisma generate
 
       - name: Lint
         run: npm run lint || true
@@ -80,18 +80,20 @@ jobs:
           ./scripts/wait-for-health.sh http://localhost:3000/api/health 60
 
       - name: Seed sample corpus
-        run: docker compose exec -T app npm run seed
-
-      - name: Hit /api/query with a known-good question
         run: |
-          curl -fsS -X POST http://localhost:3000/api/query \
+          docker compose exec -T app npx prisma migrate deploy
+          docker compose exec -T app npm run seed
+
+      - name: Hit /api/chat with a known-good question
+        run: |
+          curl -fsS -X POST http://localhost:3000/api/chat \
             -H "Content-Type: application/json" \
             -d '{"q":"what is the cosine floor used for?"}' | tee /tmp/result.json
           test "$(jq -r '.chunks | length' /tmp/result.json)" -ge 1
 
-      - name: Hit /api/query with a known-bad question (below floor)
+      - name: Hit /api/chat with a known-bad question (below floor)
         run: |
-          curl -fsS -X POST http://localhost:3000/api/query \
+          curl -fsS -X POST http://localhost:3000/api/chat \
             -H "Content-Type: application/json" \
             -d '{"q":"asfgaffdfvbcxhztrjki random gibberish 9182734"}' | tee /tmp/bad.json
           test "$(jq -r '.chunks | length' /tmp/bad.json)" = 0

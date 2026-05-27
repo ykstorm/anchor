@@ -194,6 +194,7 @@ export async function embedBuilder(builderName: string): Promise<void> {
   const builder = await prisma.builder.findUnique({
     where: { builderName },
     select: {
+      id: true,
       builderName: true,
       brandName: true,
       totalTrustScore: true,
