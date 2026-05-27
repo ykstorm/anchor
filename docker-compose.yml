@@ -1,21 +1,69 @@
-version: '3.9'
+# Anchor — single-command bring-up
+# docker compose up -d                  # postgres + app
+# docker compose exec app npm run seed  # loads 10 public-domain docs
+# open http://localhost:3000
 
 services:
+
+  # --- Postgres + pgvector ---
   postgres:
-    image: ankane/pgvector:latest
+    image: pgvector/pgvector:pg16
+    container_name: anchor-postgres
     environment:
-      POSTGRES_USER: rag
-      POSTGRES_PASSWORD: rag_password
-      POSTGRES_DB: rag_starter
+      POSTGRES_USER: anchor
+      POSTGRES_PASSWORD: anchor_dev
+      POSTGRES_DB: anchor
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
-      - pgvector_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./prisma/init/01-extensions.sql:/docker-entrypoint-initdb.d/01-extensions.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U rag']
+      test: ["CMD-SHELL", "pg_isready -U anchor -d anchor"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # --- Anchor app (Next.js standalone) ---
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anchor-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://anchor:anchor_dev@postgres:5432/anchor?sslmode=disable"
+      DIRECT_URL:   "postgresql://anchor:anchor_dev@postgres:5432/anchor?sslmode=disable"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      NEXT_PUBLIC_DEMO_MODE: "true"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # --- Optional: pgAdmin for local introspection ---
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: anchor-pgadmin
+    profiles: ["debug"]                  # only starts with: docker compose --profile debug up
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@anchor.dev
+      PGADMIN_DEFAULT_PASSWORD: anchor_dev
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
-  pgvector_data:
+  pgdata:
+    driver: local

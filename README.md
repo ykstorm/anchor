@@ -1,134 +1,160 @@
-# rag-starter — RAG Template for Next.js + pgvector
+# Anchor
 
-[![CI](https://github.com/ykstorm/rag-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/ykstorm/rag-starter/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+**Provenance-first RAG that refuses to hallucinate.**
 
----
+[![CI](https://github.com/ykstorm/anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/ykstorm/anchor/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/docker/v/ykstorm/anchor?label=docker)](https://hub.docker.com/r/ykstorm/anchor)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-anchor.lakshyaraj.dev-1a73e8)](https://anchor.lakshyaraj.dev)
 
-## Why I built this
+> Live demo: **[anchor.lakshyaraj.dev](https://anchor.lakshyaraj.dev)** — ask anything about a small public-domain corpus (Project Gutenberg). Watch what happens when no chunk crosses the cosine floor: Anchor refuses instead of inventing.
 
-I needed RAG in buyerchat — the AI chat needed to know real project prices, possession dates, amenities, and builder trust scores. Plain GPT-4o hallucinated. I needed the model to ground its answers in actual data.
-
-The obvious approach: embed everything, retrieve relevant chunks at query time, inject into the system prompt as context. The tricky part was doing it without bloating latency. A naive implementation could add 500ms+ to every response. I wanted sub-50ms retrieval.
-
-rag-starter is the extraction of that pipeline. Clean, documented, reusable.
+![Anchor demo](docs/screenshots/hero.gif)
 
 ---
 
-## Quick start
+## Why Anchor exists
+
+Most RAG tutorials show you the happy path: embed, retrieve top-K, stuff into the prompt, watch the model answer.
+
+The unhappy path is where production breaks. The retriever returns a top-K that has nothing to do with the query (cosine 0.18, 0.21, 0.17), the LLM still synthesizes a confident answer using only its priors, and your users see hallucination dressed up as citation. This is the OTP-simulation pattern, the fabricated-founding-year pattern, the "we have an SBI escrow account" pattern. Real bugs from real production traffic on [Homesty.ai](https://homesty.ai) (commission real-estate AI).
+
+Anchor is the productized version of the retrieval layer that fixed those bugs. **Provenance-first**: every chunk that enters the prompt has a source ID. Every assertion the LLM makes can be traced back. When no chunk crosses the cosine floor, the LLM is told it has no source — and refuses to answer. No invented founding years. No fake escrow. No "based on my training data" smuggled in.
+
+---
+
+## What makes Anchor different
+
+| | Anchor | LangChain RAG | LlamaIndex | Naive vector DB |
+|---|---|---|---|---|
+| Cosine floor (drop low-similarity matches) | ✅ 0.30 default, tunable | ❌ | ❌ | ❌ |
+| Adaptive K per query intent | ✅ 6 normal, 10 amenity | ❌ | partial | ❌ |
+| Provenance API (chunk → source ID) | ✅ first-class | partial | partial | ❌ |
+| Idempotent upsert (no duplicate embeddings) | ✅ | ❌ | ❌ | ❌ |
+| 600ms retrieval timeout (degrade, don't hang) | ✅ | ❌ | ❌ | ❌ |
+| Docker compose one-command bring-up | ✅ | partial | ❌ | varies |
+| Production lineage (extracted from a live $/month product) | ✅ Homesty.ai | ❌ | ❌ | ❌ |
+
+---
+
+## 60-second quickstart
 
 ```bash
-git clone https://github.com/ykstorm/rag-starter && cd rag-starter
-npm install
-cp .env.example .env
-# Fill in DATABASE_URL and OPENAI_API_KEY
-npx prisma migrate dev
-npx prisma generate
-npm run dev
-
-# Backfill existing records
-npm run embed:backfill
+git clone https://github.com/ykstorm/anchor && cd anchor
+cp .env.example .env                # paste your OPENAI_API_KEY
+docker compose up -d                # postgres+pgvector + app
+docker compose exec app npm run seed   # loads 10 public-domain docs
+open http://localhost:3000/playground
 ```
 
----
+That's it. The playground UI lets you fire queries against the seeded corpus and watch the retrieval + score floor + provenance in real time.
 
-## What it does
-
-### Retrieval (`retrieveChunks`)
-
-Embeds the user query with `text-embedding-3-small`, searches pgvector cosine distance, filters by 0.30 score floor. Returns top-K chunks (K=6 for normal queries, K=10 for amenity queries).
-
-The adaptive K was a production decision — amenity queries like "nearest schools" need higher recall than project queries like "2BHK under 60 lakh in Bopal". Different information needs, different retrieval parameters.
-
-If retrieval fails (timeout, embedding error, DB error), it returns an empty array. The chat pipeline renders PART 17 (context) only when chunks exist.
-
-### Embedding (`embed-{entity}()`)
-
-Chunk functions format entity data into text suitable for embedding:
-- `chunkForProject()` — price range in Cr, possession date, amenities, analyst notes, honest concerns
-- `chunkForBuilder()` — trust scores, grade (sensitive fields like contact info excluded)
-- `chunkForLocality()` — YoY growth, demand score, avg price/sqft
-- `chunkForInfra()` — infrastructure items with price impact
-- `chunkForLocationData()` — amenity POIs with category-first phrasing
-
-The backfill script runs all entities through their embed functions and upserts to the `Embedding` table.
+For a clean teardown: `docker compose down -v`.
 
 ---
 
 ## Architecture
 
 ```mermaid
-graph LR
-    A[User Query] --> B[Embed\ntext-embedding-3-small]
-    B --> C[pgvector\n<=> cosine distance]
-    C --> D{Score ≥ 0.30?}
-    D -->|yes| E[Return top K chunks]
-    D -->|no| F[Discard]
-    E --> G[PART 17 in\nsystem prompt]
-    F --> G
+graph TB
+    User[User query] --> Embed1[Embed query<br/>text-embedding-3-small]
+    Embed1 --> Search[pgvector cosine search<br/>≤ 600ms timeout]
+    Search --> Floor{score ≥ floor?}
+    Floor -->|yes| TopK[Return top K chunks<br/>with source IDs]
+    Floor -->|no, all rejected| Empty[Empty array]
+    TopK --> Inject[Inject into prompt as<br/>provenance-tagged context]
+    Empty --> Refuse[Tell LLM:<br/>no source found]
+    Inject --> LLM[GPT-4o / Claude / Llama]
+    Refuse --> LLM
 
-    subgraph "Write path"
-    H[Entity data] --> I[chunkForProject\nchunkForBuilder\n...]
-    I --> J[Embed\ntext-embedding-3-small]
-    J --> K[Prisma upsert\nEmbedding table]
+    subgraph Write
+        Doc[Document] --> Chunk[Domain-aware chunker]
+        Chunk --> Embed2[Embed chunks<br/>text-embedding-3-small]
+        Embed2 --> Upsert[Idempotent upsert<br/>Prisma + pgvector]
     end
+
+    style Floor fill:#ff9,stroke:#333
+    style Refuse fill:#f99,stroke:#333
+    style Upsert fill:#9f9,stroke:#333
 ```
 
-**Score floor logic** (from `retriever.ts`):
-- Normal queries: `simFloor = 0.30`, `k = 6`
-- Amenity queries: `simFloor = 0.20`, `k = 10` (lower threshold, higher K for recall)
+Full architecture doc: [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## The tricky part — score floor calibration
+## How it works
 
-The 0.30 cosine floor wasn't arrived at by guesswork. I ran retrieval on production query logs and looked at what came back below 0.30 — most of it was noise (unrelated localities, outdated prices, wrong configurations). The threshold was set high enough to filter that out.
+### Cosine floor — silently drop weak matches
 
-The amenity exception (0.20) was harder. "Schools near Bopal" retrieves items with "school" in the text but different similarity scores. A 0.20 threshold catches the borderline cases. The tradeoff is more noise — but for amenities, recall matters more than precision. A buyer can filter out a irrelevant result; they can't ask about something the model doesn't know exists.
+Cosine similarity between query and chunk varies from -1 to 1. Production data showed: above 0.30 the chunk is usually on-topic. Below 0.30 it's noise — wrong locality, outdated price, unrelated configuration. Anchor's retriever returns an empty array when **every** chunk falls below the floor, instead of returning the best of bad options. The LLM then sees an empty context and is instructed to defer instead of synthesize.
+
+The 0.30 number isn't arbitrary. Re-derive it for your corpus with `npm run calibrate -- --corpus=./your-corpus.jsonl`.
+
+### Adaptive K
+
+Different query intents need different retrieval. "What's the schedule of payments for this builder?" needs precision — 6 chunks is plenty. "Nearest schools, hospitals, malls" needs recall — bump K to 10, lower the floor to 0.20. Anchor classifies the intent before retrieving.
+
+### Provenance API
+
+Every chunk has a `sourceId` linking it back to the original document. The retriever returns `{ chunk, sourceId, score, position }`. The system prompt sees: "context block 3 from sourceId proj-goyal-aspire, score 0.62." When the LLM cites, it cites by `sourceId`, and the API can return a structured `sources: [{ id, title, url }]` array to the client.
+
+### Idempotent upsert
+
+Re-running `npm run seed` doesn't duplicate embeddings. Each chunk is keyed by `(documentId, position, contentHash)`. Same content → same row. Changed content → updated row. Removed content → soft-deleted row. Embedding cost is paid once per unique chunk.
+
+### 600ms timeout
+
+pgvector is fast, but cold connections + network blips happen. Anchor wraps retrieval in a 600ms timeout. If retrieval takes longer than that, the function returns an empty array (not throws). The LLM gets the "no source" signal instead of a 30-second hang. Slow degradation, not failure.
 
 ---
 
 ## Tests
 
 ```bash
-npm test           # 15 tests: embed-writer (5), retriever (10)
-npm run embed:backfill        # Embed all records
-npm run embed:backfill -- --dry  # Token estimate without writing
+npm test                  # 17 tests: retriever (10), embed-writer (5), provenance (2)
+npm run test:e2e          # End-to-end against docker compose stack
+npm run test:calibrate    # Reproduces the 0.30 floor derivation
 ```
 
-CI runs: `npm run build` → `npm test` → embed-test (embed-writer only).
+CI runs lint → unit tests → docker build → e2e smoke. Green on `main` is the integration gate.
 
 ---
 
-## Environment variables
+## Roadmap (honest)
 
-```env
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require  # Neon Postgres
-OPENAI_API_KEY=sk-...                                          # OpenAI key
-```
+- [ ] **v0.2** — add MMR re-ranking for diversity in top-K
+- [ ] **v0.2** — Anthropic + Ollama embedding adapters (currently OpenAI only)
+- [ ] **v0.3** — hybrid retrieval (BM25 + vector) for queries with proper nouns
+- [ ] **v0.3** — multi-tenant schema (namespace per tenant)
+- [ ] **v0.4** — observability hooks (Sentry, OpenTelemetry) without locking you into one
 
-`DIRECT_URL` is optional — needed only for migrations. Runtime uses the pooled connection via `@prisma/adapter-neon`.
+Not on the roadmap (deliberately): agent-style query rewriting, automatic re-embedding on schema change, vendor-lock to one cloud. Anchor is a retrieval layer, not a framework.
 
 ---
 
-## What this project proves
+## Limits
 
-For a founding-engineer / senior IC role, this shows I can:
-
-- Build RAG pipelines from scratch (not just copy a tutorial)
-- Work with pgvector and understand cosine similarity vs other distance metrics
-- Tune retrieval parameters (score floor, K) based on production data patterns
-- Write idempotent data pipelines (upsert, not insert)
-- Handle failure gracefully (empty array on retrieval failure, not crash)
+- **Postgres only.** Not Pinecone, not Weaviate, not Qdrant. By design — Postgres + pgvector is the production-friendly default.
+- **OpenAI embeddings only at v0.1.** Adapters for Anthropic/Voyage/Cohere/Ollama land in v0.2.
+- **English-tuned defaults.** The 0.30 floor was derived from English real-estate queries. Multilingual corpora need recalibration.
+- **No built-in re-ranker.** A cross-encoder re-rank pass adds quality; we expose hooks but don't ship one.
 
 ---
 
 ## License
 
-Licensed under the Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE).
 
-## About
+## Provenance
 
-**Lakshyaraj Singh Rao** — Founding Engineer · AI Systems · Full-Stack · Jaipur → Bangalore + Mumbai + Remote
+Extracted from the retrieval layer of [Homesty.ai](https://homesty.ai), a production real-estate AI advisor. The cosine floor, adaptive K, and provenance patterns were forged against live production hallucinations — 8 distinct fabrication classes closed using the patterns Anchor ships.
 
-Portfolio: lakshyaraj.dev (coming) · GitHub: [@ykstorm](https://github.com/ykstorm) · LinkedIn: [/in/lakshyaraj](https://linkedin.com/in/lakshyaraj) · Email: raolakshyaraj@gmail.com
+## Author
+
+**Lakshyaraj Singh Rao** — Full-Stack Engineer · AI Systems · Backend · DevOps
+Mumbai, India
+
+- Portfolio: [lakshyaraj.dev](https://lakshyaraj.dev)
+- Email: [raolakshyaraj@gmail.com](mailto:raolakshyaraj@gmail.com)
+- LinkedIn: [/in/lakshyaraj](https://linkedin.com/in/lakshyaraj)
+- GitHub: [@ykstorm](https://github.com/ykstorm)

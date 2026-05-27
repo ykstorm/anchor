@@ -14,6 +14,7 @@ function countTokens(text: string): number {
 // ── Chunk templates ────────────────────────────────────────────────────────────
 
 export function chunkForProject(p: {
+  id: string
   projectName: string
   builderName: string
   microMarket: string
@@ -50,6 +51,7 @@ export function chunkForProject(p: {
 
 // Compile-time guard — prevents sensitive builder fields from reaching AI context
 export type BuilderAIContext = {
+  id: string
   brandName: string | null | undefined
   totalTrustScore: number | null | undefined
   grade: string | null | undefined
@@ -78,6 +80,7 @@ export function chunkForBuilder(b: BuilderAIContext): string {
 }
 
 export function chunkForLocality(l: {
+  id: string
   name: string
   yoyGrowthPct: number
   demandScore: number
@@ -91,6 +94,7 @@ export function chunkForLocality(l: {
 }
 
 export function chunkForInfra(i: {
+  id: string
   name: string
   type: string
   priceImpactPct: number
@@ -104,6 +108,7 @@ export function chunkForInfra(i: {
 
 // LocationData chunk — category keyword at start of content for better embedding match
 export function chunkForLocationData(l: {
+  id: string
   category: string
   name: string
   microMarket: string
@@ -206,6 +211,7 @@ export async function embedBuilder(builderName: string): Promise<void> {
     return
   }
   const ctx: BuilderAIContext = {
+    id: builder.id,
     brandName: builder.brandName,
     totalTrustScore: builder.totalTrustScore,
     grade: builder.grade,
