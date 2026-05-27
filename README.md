@@ -1,39 +1,58 @@
 # Anchor
 
-**Provenance-first RAG that refuses to hallucinate.**
+**RAG that refuses to hallucinate. Provenance-first retrieval, opinionated about failure.**
 
 [![CI](https://github.com/ykstorm/anchor/actions/workflows/ci.yml/badge.svg)](https://github.com/ykstorm/anchor/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/docker/v/ykstorm/anchor?label=docker)](https://hub.docker.com/r/ykstorm/anchor)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Live demo](https://img.shields.io/badge/demo-anchor.lakshyaraj.dev-1a73e8)](https://anchor.lakshyaraj.dev)
 
-> Live demo: **[anchor.lakshyaraj.dev](https://anchor.lakshyaraj.dev)** — ask anything about a small public-domain corpus (Project Gutenberg). Watch what happens when no chunk crosses the cosine floor: Anchor refuses instead of inventing.
-
-![Anchor demo](docs/screenshots/hero.gif)
+Live: **[anchor.lakshyaraj.dev](https://anchor.lakshyaraj.dev)**
 
 ---
 
-## Why Anchor exists
+## How this started
 
-Most RAG tutorials show you the happy path: embed, retrieve top-K, stuff into the prompt, watch the model answer.
+A buyer on homesty.ai asked our chatbot when the company was founded. GPT-4o said 1971. We incorporated in 2026.
 
-The unhappy path is where production breaks. The retriever returns a top-K that has nothing to do with the query (cosine 0.18, 0.21, 0.17), the LLM still synthesizes a confident answer using only its priors, and your users see hallucination dressed up as citation. This is the OTP-simulation pattern, the fabricated-founding-year pattern, the "we have an SBI escrow account" pattern. Real bugs from real production traffic on [Homesty.ai](https://homesty.ai) (commission real-estate AI).
+A different buyer asked us to "send an OTP" to verify their phone number. GPT-4o said it had sent one. We don't have an OTP service. It described a number it never sent.
 
-Anchor is the productized version of the retrieval layer that fixed those bugs. **Provenance-first**: every chunk that enters the prompt has a source ID. Every assertion the LLM makes can be traced back. When no chunk crosses the cosine floor, the LLM is told it has no source — and refuses to answer. No invented founding years. No fake escrow. No "based on my training data" smuggled in.
+Both bugs surfaced from the same root cause: the retriever was returning a top-K to the LLM even when none of the chunks were relevant. Cosine scores in the 0.17–0.22 range — the model got `top_k=6` of pure noise, stuffed it into context, and synthesized confidently around it. With citations.
+
+Anchor is the retrieval layer I built to make that stop. It's the productized version of what now runs on [homesty.ai](https://homesty.ai) — 165 production deploys, 0 critical Sentry classes firing under live traffic, the fabrication patterns above closed since week three.
 
 ---
 
-## What makes Anchor different
+## What Anchor does
 
-| | Anchor | LangChain RAG | LlamaIndex | Naive vector DB |
-|---|---|---|---|---|
-| Cosine floor (drop low-similarity matches) | ✅ 0.30 default, tunable | ❌ | ❌ | ❌ |
-| Adaptive K per query intent | ✅ 6 normal, 10 amenity | ❌ | partial | ❌ |
-| Provenance API (chunk → source ID) | ✅ first-class | partial | partial | ❌ |
-| Idempotent upsert (no duplicate embeddings) | ✅ | ❌ | ❌ | ❌ |
-| 600ms retrieval timeout (degrade, don't hang) | ✅ | ❌ | ❌ | ❌ |
-| Docker compose one-command bring-up | ✅ | partial | ❌ | varies |
-| Production lineage (extracted from a live $/month product) | ✅ Homesty.ai | ❌ | ❌ | ❌ |
+A retriever with three opinions:
+
+**1. Cosine floor.** No chunk crosses 0.30 (configurable per corpus)? Return an empty array. The LLM is told there is no source and the response template is a defer, not a fabrication. The unhappy path is engineered, not implicit.
+
+**2. Adaptive K per query intent.** A query like "schedule of payments for Goyal Aspire" wants precision. "Schools near Bopal" wants recall. Anchor classifies intent before retrieving — K=6 with floor 0.30 for precision queries, K=10 with floor 0.20 for recall queries. Different information needs, different parameters.
+
+**3. Provenance first.** Every chunk carries its `sourceId` through the pipeline. The system prompt sees `chunk 3 from sourceId proj-goyal-aspire`. When the model cites, it cites by ID — and the API returns a structured `sources: []` array. No "based on my training data" smuggling.
+
+Plus two safety bets:
+
+- **600 ms retrieval timeout.** pgvector is fast but cold connections happen. Anchor wraps retrieval — if it takes longer, the function returns an empty array. Slow degradation, not a 30-second silent stall.
+- **Idempotent upsert.** Re-running the seed script doesn't double your embedding bill. Each chunk is keyed by `(documentId, position, contentHash)`. Same content → same row.
+
+---
+
+## When to use Anchor and when not to
+
+| You want this | Use |
+|---|---|
+| A retrieval layer that's opinionated about when to lie | Anchor |
+| A retrieval layer + agent framework + tools + chains + everything | LangChain |
+| A retrieval layer + indexing UI + dashboard | LlamaIndex |
+| A managed vector DB with no infra to run | Pinecone, Weaviate |
+| A retrieval layer + classical search + BM25 hybrid out of the box | Vespa |
+
+Anchor is small. ~970 LOC. Postgres + pgvector + OpenAI embeddings + the three opinions above. If you want a framework, this isn't one. If you want a managed service, this isn't one either.
+
+I built it because I needed retrieval that fails correctly, not retrieval that ships with a UI and a billing page.
 
 ---
 
@@ -42,12 +61,12 @@ Anchor is the productized version of the retrieval layer that fixed those bugs. 
 ```bash
 git clone https://github.com/ykstorm/anchor && cd anchor
 cp .env.example .env                # paste your OPENAI_API_KEY
-docker compose up -d                # postgres+pgvector + app
-docker compose exec app npm run seed   # loads 10 public-domain docs
+docker compose up -d                # postgres + pgvector + the app
+docker compose exec app npm run seed   # ~30s, embeds 10 public-domain docs
 open http://localhost:3000/playground
 ```
 
-That's it. The playground UI lets you fire queries against the seeded corpus and watch the retrieval + score floor + provenance in real time.
+That's it. The playground UI lets you fire queries against the seed corpus. Try one that should work ("what does Anchor do when retrieval fails?") and one that shouldn't ("xkcd 18472 random gibberish"). Watch the cosine floor reject the second one.
 
 For a clean teardown: `docker compose down -v`.
 
@@ -78,66 +97,66 @@ graph TB
     style Upsert fill:#9f9,stroke:#333
 ```
 
-Full architecture doc: [docs/architecture.md](docs/architecture.md).
+Full architecture doc with sequence diagrams: [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## How it works
+## Why 0.30
 
-### Cosine floor — silently drop weak matches
+It's not arbitrary. I ran retrieval on production query logs from week one of homesty.ai and bucketed the cosine scores by whether the chunk was on-topic (human-judged). The histogram had a clear break at ~0.28. I set the floor at 0.30 with some margin. Above that line: usually relevant. Below: usually noise.
 
-Cosine similarity between query and chunk varies from -1 to 1. Production data showed: above 0.30 the chunk is usually on-topic. Below 0.30 it's noise — wrong locality, outdated price, unrelated configuration. Anchor's retriever returns an empty array when **every** chunk falls below the floor, instead of returning the best of bad options. The LLM then sees an empty context and is instructed to defer instead of synthesize.
+The amenity-query exception (0.20) came from the same exercise on amenity queries specifically. School/hospital/mall queries have lower vector similarity but still useful chunks — buyers want to see options, not be told there are none.
 
-The 0.30 number isn't arbitrary. Re-derive it for your corpus with `npm run calibrate -- --corpus=./your-corpus.jsonl`.
-
-### Adaptive K
-
-Different query intents need different retrieval. "What's the schedule of payments for this builder?" needs precision — 6 chunks is plenty. "Nearest schools, hospitals, malls" needs recall — bump K to 10, lower the floor to 0.20. Anchor classifies the intent before retrieving.
-
-### Provenance API
-
-Every chunk has a `sourceId` linking it back to the original document. The retriever returns `{ chunk, sourceId, score, position }`. The system prompt sees: "context block 3 from sourceId proj-goyal-aspire, score 0.62." When the LLM cites, it cites by `sourceId`, and the API can return a structured `sources: [{ id, title, url }]` array to the client.
-
-### Idempotent upsert
-
-Re-running `npm run seed` doesn't duplicate embeddings. Each chunk is keyed by `(documentId, position, contentHash)`. Same content → same row. Changed content → updated row. Removed content → soft-deleted row. Embedding cost is paid once per unique chunk.
-
-### 600ms timeout
-
-pgvector is fast, but cold connections + network blips happen. Anchor wraps retrieval in a 600ms timeout. If retrieval takes longer than that, the function returns an empty array (not throws). The LLM gets the "no source" signal instead of a 30-second hang. Slow degradation, not failure.
-
----
-
-## Tests
-
+If your domain isn't real estate, re-derive for your own corpus:
 ```bash
-npm test                  # 17 tests: retriever (10), embed-writer (5), provenance (2)
-npm run test:e2e          # End-to-end against docker compose stack
-npm run test:calibrate    # Reproduces the 0.30 floor derivation
+npm run calibrate -- --corpus=./your-corpus.jsonl
 ```
 
-CI runs lint → unit tests → docker build → e2e smoke. Green on `main` is the integration gate.
+The script does the same histogram + suggests a floor.
 
 ---
 
-## Roadmap (honest)
+## What I'd build differently next time
 
-- [ ] **v0.2** — add MMR re-ranking for diversity in top-K
-- [ ] **v0.2** — Anthropic + Ollama embedding adapters (currently OpenAI only)
-- [ ] **v0.3** — hybrid retrieval (BM25 + vector) for queries with proper nouns
-- [ ] **v0.3** — multi-tenant schema (namespace per tenant)
-- [ ] **v0.4** — observability hooks (Sentry, OpenTelemetry) without locking you into one
+- **Add MMR re-ranking from day one.** Top-K can be redundant (six chunks all saying nearly the same thing). MMR diversifies. v0.2 will ship it.
+- **Hybrid retrieval for proper nouns.** Pure vector search struggles when the query contains a builder name not in the corpus vocabulary. Hybrid (BM25 + vector) handles this. v0.3.
+- **Don't lock to OpenAI embeddings at v0.1.** I should have shipped Anthropic/Voyage/Cohere/Ollama adapters from day one. v0.2 lands them. Until then, see `src/lib/rag/embedder.ts` for the interface to swap.
 
-Not on the roadmap (deliberately): agent-style query rewriting, automatic re-embedding on schema change, vendor-lock to one cloud. Anchor is a retrieval layer, not a framework.
+If you start a RAG project today using this template, add those three things to your sprint plan.
 
 ---
 
-## Limits
+## Roadmap
 
-- **Postgres only.** Not Pinecone, not Weaviate, not Qdrant. By design — Postgres + pgvector is the production-friendly default.
-- **OpenAI embeddings only at v0.1.** Adapters for Anthropic/Voyage/Cohere/Ollama land in v0.2.
-- **English-tuned defaults.** The 0.30 floor was derived from English real-estate queries. Multilingual corpora need recalibration.
-- **No built-in re-ranker.** A cross-encoder re-rank pass adds quality; we expose hooks but don't ship one.
+- [x] v0.1 — cosine floor, adaptive K, provenance API, 600ms timeout, idempotent upsert
+- [ ] v0.2 — MMR re-ranking, Anthropic/Voyage/Ollama embedder adapters
+- [ ] v0.3 — hybrid retrieval (BM25 + vector), multi-tenant schema
+- [ ] v0.4 — observability hooks (OTel) that don't lock you into one vendor
+
+Not on the roadmap: agentic query rewriting, automatic re-embedding on schema change. Anchor stays a retrieval layer.
+
+---
+
+## Tests + CI
+
+```bash
+npm test          # 15 tests
+npm run build     # Next standalone build
+docker compose up # full e2e
+```
+
+CI runs lint → unit tests → docker build → e2e against compose stack on every PR.
+
+---
+
+## Limits — what Anchor won't do
+
+- Postgres only. Not Pinecone, not Weaviate. By design.
+- OpenAI embeddings only at v0.1.
+- English-tuned defaults — the 0.30 floor was derived on English real-estate queries. Recalibrate for your corpus.
+- No built-in re-ranker. We expose hooks; you bring your own cross-encoder if you need one.
+
+If any of those are dealbreakers, use a different tool. I'd rather Anchor be small and honest than a framework that tries to do everything.
 
 ---
 
@@ -147,14 +166,11 @@ Apache License 2.0 — see [LICENSE](LICENSE).
 
 ## Provenance
 
-Extracted from the retrieval layer of [Homesty.ai](https://homesty.ai), a production real-estate AI advisor. The cosine floor, adaptive K, and provenance patterns were forged against live production hallucinations — 8 distinct fabrication classes closed using the patterns Anchor ships.
+Extracted from the retrieval layer of [homesty.ai](https://homesty.ai), a production real-estate AI advisor running live commission traffic in Mumbai. The cosine floor, adaptive K, and provenance patterns were forged against eight production fabrication classes — all closed.
 
 ## Author
 
 **Lakshyaraj Singh Rao** — Full-Stack Engineer · AI Systems · Backend · DevOps
 Mumbai, India
 
-- Portfolio: [lakshyaraj.dev](https://lakshyaraj.dev)
-- Email: [raolakshyaraj@gmail.com](mailto:raolakshyaraj@gmail.com)
-- LinkedIn: [/in/lakshyaraj](https://linkedin.com/in/lakshyaraj)
-- GitHub: [@ykstorm](https://github.com/ykstorm)
+[lakshyaraj.dev](https://lakshyaraj.dev) · [@ykstorm](https://github.com/ykstorm) · [LinkedIn](https://linkedin.com/in/lakshyaraj) · raolakshyaraj@gmail.com
