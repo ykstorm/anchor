@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, db: "healthy", embedder: "healthy" });
+    return NextResponse.json({ ok: true, db: "connected" });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 503 });
   }
