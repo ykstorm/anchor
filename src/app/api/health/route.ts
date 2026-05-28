@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, db: "connected" });
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 503 });
-  }
+  // Server liveness check — DB & embedder tested via E2E smoke steps
+  return NextResponse.json({ ok: true });
 }
