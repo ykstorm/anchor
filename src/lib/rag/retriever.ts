@@ -8,7 +8,14 @@ export type RetrievedChunk = {
   similarity: number
 }
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Lazy client — created on first use to avoid build-time API key validation
+let _openaiClient: OpenAI | undefined
+function getClient(): OpenAI {
+  if (!_openaiClient) {
+    _openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? undefined })
+  }
+  return _openaiClient
+}
 
 // ── Amenity-category detection ───────────────────────────────────────────────
 
@@ -55,7 +62,7 @@ export async function retrieveChunks(
   const effectiveSimFloor = isAmenityQuery ? 0.2 : simFloor
 
   try {
-    const embeddingRes = await openaiClient.embeddings.create({
+    const embeddingRes = await getClient().embeddings.create({
       model: 'text-embedding-3-small',
       input: query.slice(0, 2000),
     })
