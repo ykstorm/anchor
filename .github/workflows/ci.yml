@@ -98,7 +98,8 @@ jobs:
 
       - name: Smoke test — DB extension loaded
         run: |
-          docker compose exec -T app psql -tA -c "SELECT 1 FROM pg_extension WHERE extname='vector';" | tee /tmp/pg.txt
+          docker compose exec -T postgres pg_isready -U anchor && echo "postgres OK"
+          docker compose exec -T postgres psql -U anchor -d anchor -tA -c "SELECT 1 FROM pg_extension WHERE extname='vector';" | tee /tmp/pg.txt
           test "$(cat /tmp/pg.txt)" = "1"
 
       - name: Capture logs on failure
