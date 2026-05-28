@@ -4,7 +4,12 @@ import { prisma } from '@/lib/prisma'
 
 export type SourceType = 'project' | 'builder' | 'locality' | 'infra' | 'location_data'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Lazy client — avoids build-time API key requirement
+let _openai: OpenAI | undefined
+function getClient(): OpenAI {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? undefined })
+  return _openai
+}
 const enc = getEncoding('cl100k_base')
 
 function countTokens(text: string): number {
@@ -131,7 +136,7 @@ export async function upsertEmbedding(
   sourceId: string,
   content: string
 ): Promise<void> {
-  const response = await openai.embeddings.create({
+  const response = await getClient().embeddings.create({
     model: 'text-embedding-3-small',
     input: content,
   })

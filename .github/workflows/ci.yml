@@ -17,6 +17,8 @@ jobs:
     name: Lint + Test
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,12 +77,24 @@ jobs:
       - name: Bring up stack
         run: |
           docker compose up -d --build
-          ./scripts/wait-for-health.sh http://localhost:3000/api/health 60
+          # Poll until the health route returns 200 with {ok:true}
+          for i in $(seq 1 30); do
+            STATUS=$(curl -fsS -o /tmp/h.json -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ] && jq -e '.ok == true' /tmp/h.json > /dev/null 2>&1; then
+              echo "Health OK after ${i}s"
+              exit 0
+            fi
+            echo "Waiting for health... (attempt $i, status=$STATUS)"
+            sleep 2
+          done
+          echo "Health check failed — app logs:"
+          docker compose logs app
+          exit 1
 
-      - name: Smoke test — health endpoint
+      - name: Smoke test — health endpoint body
         run: |
           curl -fsS http://localhost:3000/api/health | tee /tmp/health.json
-          test "$(jq -r '.status' /tmp/health.json)" = "ok"
+          test "$(jq -r '.ok' /tmp/health.json)" = "true"
 
       - name: Smoke test — DB extension loaded
         run: |
