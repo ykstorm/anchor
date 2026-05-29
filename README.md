@@ -13,13 +13,7 @@ Live: **[anchor.lakshyaraj.dev](https://anchor.lakshyaraj.dev)**
 
 ## How this started
 
-A buyer on homesty.ai asked our chatbot when the company was founded. GPT-4o said 1971. We incorporated in 2026.
-
-A different buyer asked us to "send an OTP" to verify their phone number. GPT-4o said it had sent one. We don't have an OTP service. It described a number it never sent.
-
-Both bugs surfaced from the same root cause: the retriever was returning a top-K to the LLM even when none of the chunks were relevant. Cosine scores in the 0.17–0.22 range — the model got `top_k=6` of pure noise, stuffed it into context, and synthesized confidently around it. With citations.
-
-Anchor is the retrieval layer I built to make that stop. It's the productized version of what now runs on [homesty.ai](https://homesty.ai) — 165 production deploys, 0 critical Sentry classes firing under live traffic, the fabrication patterns above closed since week three.
+RAG tutorials show the happy path. Production is where the unhappy path lives. Anchor is the retrieval layer I built to handle the unhappy path well. The cosine floor, adaptive K, and idempotent upsert patterns are extracted from homesty.ai's production retrieval stack.
 
 ---
 
