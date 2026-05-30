@@ -189,7 +189,7 @@ graph LR
 
 - **Compute:** Vercel Next.js serverless functions (no cold-start tax on Edge runtime for /api/query)
 - **Database:** Neon Postgres (Free tier supports pgvector natively, autoscaling, branching for preview deploys)
-- **Embedder:** OpenAI text-embedding-3-small (~$0.02 per million tokens, sub-200ms p99)
+- **Embedder:** OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on document size and API load)
 - **Observability:** Sentry for errors, Vercel Analytics for latency, OpenTelemetry hooks exposed but unopinionated
 
 Self-hosted alternative: any Postgres with pgvector + any Node runtime. Anchor is portable by design.
