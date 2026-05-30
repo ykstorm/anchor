@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const { seedDemoData } = await import('@/lib/rag/demo-seeder')
     const { embedAndStore } = await import('@/lib/rag/seed-runner')
     const loaded = await seedDemoData()
-    const embedded = await embedAndStore()
+    const embedded = await embedAndStore('./corpus')
     return NextResponse.json({ ok: true, loaded, embedded })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e), stack: e?.stack?.split('\n').slice(0, 8).join('\n') }, { status: 500 })
