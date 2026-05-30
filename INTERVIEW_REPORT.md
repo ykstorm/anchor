@@ -12,7 +12,7 @@ The project started as part of buyerchat — the AI chat needed to know real pro
 
 buyerchat's chat pipeline was generating confident wrong answers. A buyer would ask "what's the possession date for Gala Silver Palm?" and GPT-4o would make up a date. The model had no access to the actual database.
 
-The solution was RAG. But I didn't want to add latency — a naive RAG implementation could add 500ms+ to every response. My target was sub-50ms retrieval. pgvector on Neon serverless Postgres can hit that if you structure the query right.
+The solution was RAG. But I didn't want to add latency — a naive RAG implementation could add 500ms+ to every response. My goal was keeping retrieval fast enough that it would not be the bottleneck. pgvector on well-indexed Postgres handles typical query loads without issues.
 
 I extracted the pipeline into rag-starter so I could reuse it in other projects. The embed functions (`chunkForProject`, `chunkForBuilder`, etc.) are generic enough to work with any entity schema.
 
