@@ -10,7 +10,7 @@ interface Chunk {
   similarity: number
 }
 
-export default function PlaygroundPage() {
+function PlaygroundInner() {
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') ?? '')
   const [loading, setLoading] = useState(false)
@@ -37,8 +37,8 @@ export default function PlaygroundPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setResult(data)
-    } catch (err: any) {
-      setError(err.message ?? 'Request failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Request failed')
     } finally {
       setLoading(false)
     }
@@ -162,5 +162,15 @@ export default function PlaygroundPage() {
         </div>
       )}
     </div>
+  )
+}
+
+import { Suspense } from 'react'
+
+export default function PlaygroundPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+      <PlaygroundInner />
+    </Suspense>
   )
 }
