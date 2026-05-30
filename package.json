@@ -30,7 +30,6 @@
     "embed:backfill": "tsx scripts/embed-backfill.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "postinstall": "prisma generate",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest"
