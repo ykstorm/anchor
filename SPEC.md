@@ -1,4 +1,4 @@
-# SPEC.md — rag-starter
+# SPEC.md — Anchor
 
 > 1-page summary. Verify every claim against actual code before committing.
 
@@ -6,7 +6,7 @@
 
 ## What it is
 
-**rag-starter** is a production-ready RAG (Retrieval-Augmented Generation) template for Next.js 15 + Prisma + pgvector. It provides embed-write and retrieval pipelines that can be dropped into any Next.js project with a PostgreSQL + pgvector database. Extracted from Homesty.ai's buyerchat, where it handles real queries in production.
+**Anchor** is a provenance-first RAG (Retrieval-Augmented Generation) pipeline for Next.js 15 + Prisma + pgvector. It provides embed-write and retrieval pipelines built around a single principle: refuse to answer when the retrieval signal is too weak, instead of hallucinating. Extracted from buyerchat, where it handles real queries in production.
 
 ---
 

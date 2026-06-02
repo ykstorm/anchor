@@ -1,4 +1,4 @@
-# rag-starter — Interview Report
+# Anchor — Interview Report
 
 ## What I built
 
@@ -77,4 +77,4 @@ Be ready to explain:
 - Why upsert instead of insert (answer: re-runnable backfill, no duplicates)
 - What happens on retrieval failure (answer: returns empty array, caller continues normally — fail silently)
 
-This project lives at: github.com/ykstorm/rag-starter
+This project lives at: github.com/ykstorm/anchor
