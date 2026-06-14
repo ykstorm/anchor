@@ -1,0 +1,38 @@
+name: Docker
+
+# Standalone image build check. Verifies the Dockerfile builds the real
+# Next.js standalone app end to end. CI (ci.yml) also runs a compose smoke
+# test; this job keeps the image build green on its own.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build anchor:test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: anchor:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Confirm image exists
+        run: docker image inspect anchor:test --format 'built {{.Id}} ({{.Size}} bytes)'
