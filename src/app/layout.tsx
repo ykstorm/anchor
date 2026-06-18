@@ -2,8 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'RAG Starter',
-  description: 'Next.js 15 + Prisma + pgvector RAG template',
+  title: { default: 'Anchor', template: '%s · Anchor' },
+  description: 'Provenance-first RAG that refuses to hallucinate.',
 }
 
 export default function RootLayout({
