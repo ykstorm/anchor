@@ -47,9 +47,10 @@ export default function Home() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-6">Try these queries</h2>
         <div className="grid gap-3">
           {[
-            'What does Anchor do when retrieval fails?',
+            'Which Goyal & Co. projects in Shela are ready to move in?',
             'Projects in South Bopal under ₹1Cr with metro access',
             'Builders with A-grade trust score in Ahmedabad',
+            'xkcd 18472 nonsense gibberish', // off-topic → refused
           ].map((q) => (
             <Link
               key={q}

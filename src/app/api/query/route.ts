@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { retrieveChunks } from '@/lib/rag/retriever'
+import { buildSources } from '@/lib/rag/sources'
 
 const QuerySchema = z.object({
   q: z.string().min(1).max(800),
@@ -31,5 +32,8 @@ export async function POST(req: NextRequest) {
   // Refused-state: if no chunks retrieved, return refused=true
   const refused = chunks.length === 0
 
-  return NextResponse.json({ chunks, refused })
+  // Provenance: deduped sources[] across the returned chunks (empty when refused)
+  const sources = buildSources(chunks)
+
+  return NextResponse.json({ chunks, refused, sources })
 }

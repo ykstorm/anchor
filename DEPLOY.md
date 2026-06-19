@@ -155,21 +155,21 @@ OpenAI embedding cost: $0.02 per million tokens. A typical query embeds ~50 toke
 ```bash
 HOST=https://anchor.lakshyaraj.dev   # or your URL
 
-# 1. Health
+# 1. Health (liveness)
 curl -fsS $HOST/api/health
-# expected: {"ok":true,"db":"healthy","embedder":"healthy"}
+# expected: {"ok":true}
 
-# 2. Known-good query (chunks should return)
+# 2. Known-good query (chunks should return) — matches the seeded corpus
 curl -fsS -X POST $HOST/api/query \
   -H "Content-Type: application/json" \
-  -d '{"q":"What does Anchor do when retrieval fails?"}'
+  -d '{"q":"Which Goyal & Co. projects in Shela are ready to move in?"}'
 # expected: chunks: [...], refused: false, sources: [...]
 
 # 3. Known-bad query (should be refused)
 curl -fsS -X POST $HOST/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"xkcd 18472 nonexistent gibberish"}'
-# expected: chunks: [], refused: true
+# expected: chunks: [], refused: true, sources: []
 ```
 
 If any smoke test fails, check Vercel logs (`vercel logs`) and Sentry dashboard. Common issues:
