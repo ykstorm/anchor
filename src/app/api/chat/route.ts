@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { retrieveChunks } from '@/lib/rag/retriever'
+import { buildSources } from '@/lib/rag/sources'
 
 const ChatRequestSchema = z.object({
   messages: z.array(z.object({
@@ -42,10 +43,16 @@ export async function POST(req: NextRequest) {
     chunks = [] as typeof chunks
   }
 
+  // Provenance: deduped sources[] across the returned chunks (empty when refused)
+  const sources = buildSources(chunks)
+  const refused = chunks.length === 0
+
   return NextResponse.json({
     query: latestMsg,
     chunks,
     chunkCount: chunks.length,
+    refused,
+    sources,
     // In a full implementation, chunks would be injected into the system prompt
     // and the response would be streamed via Vercel AI SDK
   })

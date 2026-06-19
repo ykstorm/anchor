@@ -1,31 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
-// Pure unit tests for RAG retriever logic — no Prisma, no @/ alias needed
-// These mirror the detectAmenityCategories logic from src/lib/rag/embed-writer.ts
+// Mock side-effecting deps so importing the real retriever module is safe:
+//  - '@/lib/prisma' instantiates a PrismaClient at module load (needs a DB URL)
+//  - 'openai' would try to construct a client
+// We only exercise the pure detectAmenityCategories logic here, but importing
+// the REAL function from source is what makes this test catch regressions
+// (previously it copy-pasted the regex map, so source drift went undetected).
+vi.mock('@/lib/prisma', () => ({ prisma: {} }))
+vi.mock('openai', () => ({ default: class {} }))
 
-const AMENITY_CATEGORIES: Record<string, RegExp> = {
-  park:      /\b(park|parks|garden|gardens)\b/i,
-  hospital:  /\b(hospital|hospitals|clinic|clinics|healthcare)\b/i,
-  atm:       /\b(atm|atms|cash\s*machine)\b/i,
-  bank:      /\b(bank|banks|branch|branches)\b/i,
-  school:    /\b(school|schools|college|colleges|university|universities|institute)\b/i,
-  mall:      /\b(mall|malls|shopping|shop|store|supermarket)\b/i,
-  club:      /\b(club|clubs|gym|gyms|sports|fitness)\b/i,
-  temple:    /\b(temple|temples|mandir)\b/i,
-  transport: /\b(metro|brts|bus|transport|station|commute)\b/i,
-}
+import { detectAmenityCategories } from '@/lib/rag/retriever'
 
-function detectAmenityCategories(query: string): string[] {
-  const hit: string[] = []
-  for (const [cat, rx] of Object.entries(AMENITY_CATEGORIES)) {
-    if (rx.test(query)) hit.push(cat)
-  }
-  if (hit.includes('atm') && !hit.includes('bank')) hit.push('bank')
-  if (hit.includes('bank') && !hit.includes('atm')) hit.push('atm')
-  return hit
-}
-
-describe('detectAmenityCategories', () => {
+describe('detectAmenityCategories (imported from source)', () => {
   it('detects park/garden', () => {
     const cats = detectAmenityCategories('flat near park and garden')
     expect(cats).toContain('park')

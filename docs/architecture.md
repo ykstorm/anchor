@@ -79,7 +79,7 @@ sequenceDiagram
     API->>I: classify(q)
     I-->>API: intent=amenity → K=10, floor=0.20
     API->>R: retrieve(q, K, floor)
-    R->>E: embed(q)  [600ms timeout]
+    R->>E: embed(q)  [1500ms timeout]
     E-->>R: vector(1536)
     R->>V: SELECT ... ORDER BY embedding <=> q_vec LIMIT 10
     V-->>R: 10 candidates with scores
@@ -152,7 +152,7 @@ Layers 2 (markdown abort) and 4 (regex audit) from buyerchat live in a sibling p
 
 | Failure | Anchor behavior | What you DON'T get |
 |---|---|---|
-| Embedder timeout (>600ms) | Returns empty chunks + `refused: true` | A 30s hang while OpenAI is having an outage |
+| DB query timeout (>1500ms, >5000ms amenity) | Returns empty chunks + `refused: true` | A 30s hang while the DB is slow |
 | All chunks below floor | Returns empty chunks + `refused: true` | The LLM stitching together unrelated documents |
 | DB connection drop | Returns empty chunks + Sentry alert | A crashing API route |
 | Malformed query (empty string) | 400 Bad Request | A wasted embedding call |

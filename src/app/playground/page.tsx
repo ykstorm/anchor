@@ -10,11 +10,18 @@ interface Chunk {
   similarity: number
 }
 
+interface Source {
+  sourceId: string
+  sourceType: string
+  similarity: number
+  chunkCount: number
+}
+
 function PlaygroundInner() {
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') ?? '')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ chunks: Chunk[]; refused: boolean } | null>(null)
+  const [result, setResult] = useState<{ chunks: Chunk[]; refused: boolean; sources?: Source[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -84,7 +91,7 @@ function PlaygroundInner() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. What does Anchor do when retrieval fails?"
+            placeholder="e.g. Which Goyal & Co. projects in Shela are ready to move in?"
             className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors text-sm"
             maxLength={800}
           />
@@ -127,6 +134,26 @@ function PlaygroundInner() {
               </span>
             )}
           </div>
+
+          {/* Sources — deduped provenance across the returned chunks */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="mb-6">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                sources ({result.sources.length})
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((s, i) => (
+                  <span
+                    key={i}
+                    className={`text-xs font-mono px-2 py-1 rounded ${sourceBadge(s.sourceType)}`}
+                    title={`${s.chunkCount} chunk(s) · best similarity ${Number(s.similarity).toFixed(3)}`}
+                  >
+                    {s.sourceType}:{s.sourceId}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Chunks */}
           {result.chunks.length === 0 ? (

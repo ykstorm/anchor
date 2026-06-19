@@ -6,7 +6,7 @@
 
 ## What it is
 
-**Anchor** is a provenance-first RAG (Retrieval-Augmented Generation) pipeline for Next.js 15 + Prisma + pgvector. It provides embed-write and retrieval pipelines built around a single principle: refuse to answer when the retrieval signal is too weak, instead of hallucinating. Extracted from buyerchat, where it handles real queries in production.
+**Anchor** is a provenance-first RAG (Retrieval-Augmented Generation) pipeline for Next.js 16 + Prisma + pgvector. It provides embed-write and retrieval pipelines built around a single principle: refuse to answer when the retrieval signal is too weak, instead of hallucinating. Extracted from buyerchat, where it handles real queries in production.
 
 ---
 
@@ -17,12 +17,14 @@
 | Vector search with cosine distance (`<=>`) | `src/lib/rag/retriever.ts` |
 | 0.30 similarity score floor (0.20 for amenity queries) | `src/lib/rag/retriever.ts` |
 | Adaptive K (6 normal, 10 amenity) | `src/lib/rag/retriever.ts` |
-| 600ms retrieval timeout | `src/lib/rag/retriever.ts` |
+| 1500ms retrieval timeout (5000ms for amenity queries) | `src/lib/rag/retriever.ts` |
 | Idempotent upsert (checks existing by `entity_type + entity_id`) | `src/lib/rag/embed-writer.ts` |
 | Bulk backfill script with `--dry` mode | `scripts/embed-backfill.ts` |
 | Embed functions per entity type | `src/lib/rag/embed-writer.ts` |
-| 15 tests passing (embed-writer: 5, retriever: 10) | `tests/*.test.ts` |
-| Prisma migration on disk | `prisma/migrations/` |
+| Deduped `sources[]` provenance array | `src/lib/rag/sources.ts` |
+| Health endpoint (`/api/health`) | `src/app/api/health/route.ts` |
+| 25 tests passing (embed-writer: 5, retriever: 10, sources: 7, query route: 3) | `tests/*.test.ts` |
+| Prisma migration on disk (incl. `CREATE EXTENSION vector`) | `prisma/migrations/` |
 
 ---
 
@@ -68,14 +70,14 @@ graph LR
 
 4. **Empty array on failure** — `retrieveChunks` catches all errors and returns `[]`. The caller (chat pipeline) renders PART 17 only when chunks exist. This makes the RAG path fail silently — no crash, no fabricated context.
 
-5. **600ms timeout** — pgvector queries on Neon serverless can be slow. The timeout ensures the chat pipeline doesn't hang on a slow retrieval. On timeout, returns `[]` and logs.
+5. **1500ms timeout (5000ms for amenity queries)** — pgvector queries on Neon serverless can be slow. The timeout ensures the chat pipeline doesn't hang on a slow retrieval. On timeout, returns `[]`. (See `dbBudgetMs` in `src/lib/rag/retriever.ts`.)
 
 ---
 
 ## Tech stack (verified from package.json)
 
-- Next.js 15.2.9, React 19.2.4, TypeScript strict
-- Prisma 7 + `@prisma/adapter-neon`
+- Next.js 16.2.9, React 19.2.7, TypeScript strict
+- Prisma 7 + `@prisma/adapter-neon` (Neon HTTP) / `@prisma/adapter-pg` (local Docker Postgres)
 - pgvector (PostgreSQL extension)
 - OpenAI `text-embedding-3-small`
 - Vercel AI SDK, Zod 4, js-tiktoken (token counting)
@@ -84,11 +86,9 @@ graph LR
 
 ## Gaps identified
 
-- No INTERVIEW_REPORT.md yet (written in this polish)
-- No health endpoint (`/api/health`)
 - No pre-commit hooks
-- CI only runs test + embed-test — no lint step
-- Prisma migration exists on disk but is unapplied in fresh clone (documented in README)
+- `/api/chat` is retrieval-only (no LLM generation wired) — chunks + `sources[]` are returned for the caller to inject
+- `/api/health` is a liveness check; it does not probe DB/embedder connectivity
 
 ---
 

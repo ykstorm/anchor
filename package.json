@@ -19,12 +19,16 @@
     "llm",
     "nextjs"
   ],
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx scripts/embed-backfill.ts --corpus=./corpus",
+    "seed": "tsx prisma/seed.ts",
+    "seed:backfill": "tsx scripts/embed-backfill.ts --corpus=./corpus",
     "calibrate": "tsx scripts/calibrate-floor.ts",
     "test:e2e": "tsx scripts/e2e.ts",
     "embed:backfill": "tsx scripts/embed-backfill.ts",
@@ -36,11 +40,14 @@
   },
   "dependencies": {
     "@prisma/adapter-neon": "^7.5.0",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.5.0",
+    "@types/pg": "^8.20.0",
     "ai": "^6.0.206",
     "js-tiktoken": "^1.0.21",
     "next": "16.2.9",
     "openai": "^6.42.0",
+    "pg": "^8.22.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "zod": "^4.3.6"
