@@ -77,6 +77,26 @@ curl -X POST https://anchor-iota-ten.vercel.app/api/query \
 
 ---
 
+## Performance
+
+Retrieval is a pgvector HNSW cosine search over the `Embedding` table. Measured
+on a 1,000-chunk table (1536-dim vectors, `vector_cosine_ops` HNSW index),
+300 queries, k=6:
+
+| Metric | Result |
+|---|---|
+| p50 | **3.4 ms** |
+| p95 | 6.3 ms |
+| p99 | 7.6 ms |
+
+That is the **DB-side vector search** end-to-end (query incl. round-trip),
+excluding the upstream embedding API call. Single-digit-millisecond retrieval at
+1k chunks is what lets the refusal floor run inline on the request path without
+adding perceptible latency. Reproduce with `bench/retrieval.mjs` (Postgres +
+pgvector via Docker; random vectors, no API key — see the script header).
+
+---
+
 ## Stack
 
 | Layer | Choice |
