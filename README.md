@@ -80,20 +80,24 @@ curl -X POST https://anchor-iota-ten.vercel.app/api/query \
 ## Performance
 
 Retrieval is a pgvector HNSW cosine search over the `Embedding` table. Measured
-on a 1,000-chunk table (1536-dim vectors, `vector_cosine_ops` HNSW index),
-300 queries, k=6:
+in CI (GitHub Actions `ubuntu-latest`, Node 20, `pgvector/pgvector:pg16` service)
+at three corpus sizes — 1536-dim vectors, `vector_cosine_ops` HNSW index, k=6,
+300 queries each:
 
-| Metric | Result |
-|---|---|
-| p50 | **3.4 ms** |
-| p95 | 6.3 ms |
-| p99 | 7.6 ms |
+| Vectors | p50 | p95 | p99 |
+|---|---|---|---|
+| 1,000 | **0.94 ms** | 1.06 ms | 1.32 ms |
+| 10,000 | **1.47 ms** | 1.86 ms | 2.25 ms |
+| 100,000 | **2.59 ms** | 3.51 ms | 4.48 ms |
 
-That is the **DB-side vector search** end-to-end (query incl. round-trip),
-excluding the upstream embedding API call. Single-digit-millisecond retrieval at
-1k chunks is what lets the refusal floor run inline on the request path without
-adding perceptible latency. Reproduce with `bench/retrieval.mjs` (Postgres +
-pgvector via Docker; random vectors, no API key — see the script header).
+That is the **DB-side vector search** (query incl. round-trip), excluding the
+upstream embedding API call. The HNSW index scales sub-linearly — a 100× larger
+corpus costs under 3× the latency — so the refusal floor runs inline on the
+request path with single-digit-millisecond retrieval even at 100k chunks.
+Measured, not estimated: the numbers above are produced by
+[`.github/workflows/benchmark.yml`](.github/workflows/benchmark.yml) on every
+push. Reproduce locally with `node bench/latency-scale.mjs` (Postgres + pgvector
+via Docker; random vectors, no API key — see the script header).
 
 ---
 
