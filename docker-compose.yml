@@ -10,9 +10,10 @@ services:
     image: pgvector/pgvector:pg16
     container_name: anchor-postgres
     environment:
-      POSTGRES_USER: anchor
-      POSTGRES_PASSWORD: anchor
-      POSTGRES_DB: anchor
+      # Local throwaway defaults — override via .env for any shared/remote use.
+      POSTGRES_USER: "${POSTGRES_USER:-anchor}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-anchor}"
+      POSTGRES_DB: "${POSTGRES_DB:-anchor}"
     ports:
       - "5432:5432"
     volumes:
@@ -35,8 +36,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://anchor:anchor@postgres:5432/anchor?sslmode=disable"
-      DIRECT_URL:   "postgresql://anchor:anchor@postgres:5432/anchor?sslmode=disable"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-anchor}:${POSTGRES_PASSWORD:-anchor}@postgres:5432/${POSTGRES_DB:-anchor}?sslmode=disable"
+      DIRECT_URL:   "postgresql://${POSTGRES_USER:-anchor}:${POSTGRES_PASSWORD:-anchor}@postgres:5432/${POSTGRES_DB:-anchor}?sslmode=disable"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       NEXT_PUBLIC_DEMO_MODE: "true"
     ports:
@@ -55,8 +56,8 @@ services:
     container_name: anchor-pgadmin
     profiles: ["debug"]                  # only starts with: docker compose --profile debug up
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@anchor.dev
-      PGADMIN_DEFAULT_PASSWORD: anchor
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@anchor.dev}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:-anchor}"
       PGADMIN_LISTEN_PORT: 5050
     ports:
       - "5050:5050"
