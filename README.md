@@ -133,8 +133,9 @@ pgvector — no hosted database required.
 # 1. Clone
 git clone https://github.com/ykstorm/anchor.git && cd anchor
 
-# 2. Configure — open .env and paste your OPENAI_API_KEY.
-#    DATABASE_URL is already set for the docker-compose Postgres.
+# 2. Configure — open .env, paste your OPENAI_API_KEY, and set DATABASE_URL to
+#    the local docker string documented in .env.example:
+#    postgresql://anchor:anchor@localhost:5432/anchor?sslmode=disable
 cp .env.example .env
 
 # 3. Start Postgres + pgvector (creates the `vector` extension on first boot)
@@ -160,6 +161,21 @@ Open **http://localhost:3000/playground** and try:
 
 > `npm run seed` needs `OPENAI_API_KEY` to embed. Without a key it still seeds
 > the structured rows and tells you to re-run once the key is set.
+
+---
+
+## Security & credentials
+
+Secrets live only in `.env`, which is gitignored — `.env.example` ships
+placeholders (`REPLACE_ME`) and the local docker default, nothing real.
+Connection strings in `docker-compose.yml`, CI, and the `Dockerfile` are
+throwaway local/CI values, overridable via environment variables.
+
+If a credential is ever exposed (commit, log, screenshot, CI output), **rotate
+it** — provision a replacement, update every environment, then revoke the old
+one. Full steps, plus Neon password reset, are in
+[SECURITY.md → Credential rotation](SECURITY.md#credential-rotation)
+([Neon rotation docs](https://neon.tech/docs/manage/roles#reset-a-password)).
 
 ---
 

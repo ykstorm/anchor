@@ -1,8 +1,8 @@
 node_modules
 .next
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 .vercel
 
 # audit 2026-06-24: standard ignores
