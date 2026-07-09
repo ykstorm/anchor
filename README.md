@@ -9,7 +9,9 @@
 
 **Provenance-first RAG that refuses to hallucinate.**
 
-A retrieval layer that returns a grounded answer when similarity is high, and explicitly refuses when it isn't — no fabrication, no hedging.
+> A 0.12 cosine match is not an answer — but most RAG stacks feed it to the model anyway and get a confident fabrication wearing a citation.
+
+A retrieval layer that returns grounded chunks with their provenance when similarity is high, and explicitly refuses when it isn't — no fabrication, no hedging.
 
 **Live demo:** [anchor-iota-ten.vercel.app](https://anchor-iota-ten.vercel.app)
 **Playground:** [anchor-iota-ten.vercel.app/playground](https://anchor-iota-ten.vercel.app/playground)
@@ -21,6 +23,25 @@ A retrieval layer that returns a grounded answer when similarity is high, and ex
 RAG tutorials show the happy path. Production lives in the unhappy path.
 
 A cosine similarity of 0.12 between the query and the closest chunk in your corpus is not a foundation for a confident answer — but most RAG systems feed it to the LLM anyway and get a plausible-sounding fabrication. Anchor treats that signal for what it is: too weak to use.
+
+---
+
+## Why this exists
+
+Anchor is the refusal-first counterpoint to happy-path RAG tutorials, extracted
+from a real production need. The same stance runs in Homesty's production buyer
+chat, where empty retrieval renders an explicit hedge-honestly instruction
+instead of a synthesized guess — because for a home buyer making the largest
+purchase of their life, a confident wrong answer is worse than an honest "not in
+my sources."
+
+The refusal threshold is deliberately not a hardcoded universal number. A floor
+that is right for one corpus is paranoid or useless on another, so it is an
+*output of calibration*, not an input. `npm run calibrate` runs a labeled query
+set against your corpus and finds where the answerable and unanswerable
+similarity distributions separate; on the seeded demo corpus that lands near
+`0.30`, but yours will differ. The method ships with the repo because the method
+is the product — the value is just one corpus's answer.
 
 ---
 

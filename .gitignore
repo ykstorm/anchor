@@ -10,3 +10,6 @@ dist/
 coverage/
 *.log
 .DS_Store
+
+# local pre-polish README backup (not tracked)
+README.pre-polish.md
