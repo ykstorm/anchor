@@ -28,14 +28,14 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - run: npm ci
       - name: Run retrieval-latency-at-scale benchmark
         run: node bench/latency-scale.mjs | tee bench/results.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: retrieval-latency
           path: bench/results.txt
