@@ -1,11 +1,12 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { AnalyticsStripped } from './analytics'
 
 export const metadata: Metadata = {
   title: { default: 'Anchor', template: '%s · Anchor' },
-  description: 'Provenance-first RAG that refuses to hallucinate.',
+  description:
+    'Retrieval for pgvector that returns no answer when the best match is too weak, and names the source of every chunk it returns.',
 }
 
 export default function RootLayout({
@@ -17,7 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
-        <Analytics />
+        <AnalyticsStripped />
         <SpeedInsights />
       </body>
     </html>

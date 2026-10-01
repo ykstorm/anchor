@@ -1,5 +1,6 @@
-import OpenAI from 'openai'
 import { prisma } from '@/lib/prisma'
+import { getOpenAI } from '@/lib/openai'
+import { sanitizeText } from '@/lib/rag/sanitize'
 
 export type RetrievedChunk = {
   sourceType: string
@@ -8,16 +9,35 @@ export type RetrievedChunk = {
   similarity: number
 }
 
-// Lazy client — created on first use to avoid build-time API key validation
-let _openaiClient: OpenAI | undefined
-function getClient(): OpenAI {
-  if (!_openaiClient) {
-    _openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? undefined })
-  }
-  return _openaiClient
+export type RetrievalResult = {
+  chunks: RetrievedChunk[]
+  floor: number
+  // Best cosine similarity among the candidates considered, before the floor
+  // filter. null when the corpus returned no rows. Lets callers explain a
+  // refusal ("best match was 0.21, floor is 0.30") without guessing.
+  maxSimilarity: number | null
 }
 
-// ── Amenity-category detection ───────────────────────────────────────────────
+// Thrown when retrieval cannot complete: the embedding call failed, the DB
+// query failed, or the DB budget was exceeded. A failure is NOT a refusal — the
+// caller turns this into a 503, never an empty "no answer" result.
+export class RetrievalError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message)
+    this.name = 'RetrievalError'
+  }
+}
+
+// Cosine similarity floor. A match below this is treated as too weak to answer
+// from, so retrieval returns no chunks and the caller refuses. Exported so docs,
+// tests, and the API response all read the same number. This is a property of
+// the corpus (calibrate it), never lowered by the query text.
+export const SIM_FLOOR = 0.30
+
+// Milliseconds to wait on the pgvector query before treating it as a failure.
+const DB_TIMEOUT_MS = 5000
+
+// ── Amenity-category detection ──────────────────────────────────────────────
 
 const AMENITY_CATEGORIES: Record<string, RegExp> = {
   park:      /\b(park|parks|garden|gardens)\b/i,
@@ -42,55 +62,72 @@ export function detectAmenityCategories(query: string): string[] {
   return hit
 }
 
-// ── Retrieval ─────────────────────────────────────────────────────────────────
+// ── Retrieval ───────────────────────────────────────────────────────────────
 
 /**
  * Retrieve semantic chunks from the Embedding table.
  *
- * @param query       - Natural-language search query
- * @param k           - Max chunks to retrieve (default 6, min 10 for amenity queries)
- * @param simFloor    - Cosine similarity floor (default 0.30, 0.20 for amenity queries)
+ * Amenity queries widen recall (more candidates, plus a category boost on
+ * location_data rows) but the similarity floor is NEVER lowered by the query
+ * text: a weak match stays a refusal.
+ *
+ * Throws RetrievalError if embedding or the DB query fails. An empty result
+ * (no candidate cleared the floor) is a refusal, not an error.
  */
 export async function retrieveChunks(
   query: string,
   k: number = 6,
-  simFloor: number = 0.30
-): Promise<RetrievedChunk[]> {
+  simFloor: number = SIM_FLOOR
+): Promise<RetrievalResult> {
   const amenityHits = detectAmenityCategories(query)
   const isAmenityQuery = amenityHits.length > 0
   const effectiveK = isAmenityQuery ? Math.max(k, 10) : k
-  const effectiveSimFloor = isAmenityQuery ? 0.2 : simFloor
+  const cleanQuery = sanitizeText(query)
 
+  let vec: number[]
   try {
-    const embeddingRes = await getClient().embeddings.create({
+    const embeddingRes = await getOpenAI().embeddings.create({
       model: 'text-embedding-3-small',
-      input: query.slice(0, 2000),
+      input: cleanQuery,
     })
-    const vec = embeddingRes.data[0].embedding
-    const vecStr = `[${vec.join(',')}]`
+    vec = embeddingRes.data[0].embedding
+  } catch (err) {
+    throw new RetrievalError('embedding failed', err)
+  }
+  const vecStr = `[${vec.join(',')}]`
 
-    // DB query timeout — sub-second for normal, 5s for amenity queries
-    const dbBudgetMs = isAmenityQuery ? 5000 : 1500
-    const dbTimeout = new Promise<RetrievedChunk[]>((resolve) =>
-      setTimeout(() => resolve([]), dbBudgetMs)
-    )
-    const dbQuery = prisma.$queryRawUnsafe<RetrievedChunk[]>(
-      `SELECT "sourceType", "sourceId", "content",
-        1 - (embedding <=> $1::vector) AS similarity
-       FROM "Embedding"
-       ORDER BY embedding <=> $1::vector
-       LIMIT $2`,
-      vecStr,
-      effectiveK
-    )
-    const rows = await Promise.race([dbQuery, dbTimeout])
+  let rows: RetrievedChunk[]
+  try {
+    const dbQuery = prisma.$queryRaw<RetrievedChunk[]>`
+      SELECT "sourceType", "sourceId", "content",
+        (1 - (embedding <=> ${vecStr}::vector))::float8 AS similarity
+      FROM "Embedding"
+      ORDER BY embedding <=> ${vecStr}::vector
+      LIMIT ${effectiveK}
+    `
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const dbTimeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new RetrievalError('db query timed out')), DB_TIMEOUT_MS)
+    })
+    try {
+      rows = await Promise.race([dbQuery, dbTimeout])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  } catch (err) {
+    if (err instanceof RetrievalError) throw err
+    throw new RetrievalError('db query failed', err)
+  }
 
-    const filtered = (rows as RetrievedChunk[]).filter(
-      (r) => Number(r.similarity) >= effectiveSimFloor
-    )
+  const maxSimilarity = rows.length > 0
+    ? Math.max(...rows.map((r) => r.similarity))
+    : null
 
-    // Amenity boost: promote location_data rows whose content names the detected category
-    if (!isAmenityQuery) return filtered
+  const filtered = rows.filter((r) => r.similarity >= simFloor)
+
+  // Amenity boost: promote location_data rows whose content names the detected category
+  let chunks = filtered
+  if (isAmenityQuery) {
     const boosted = filtered.map((r) => {
       let bonus = 0
       if (r.sourceType === 'location_data') {
@@ -101,11 +138,11 @@ export async function retrieveChunks(
           bonus += 0.05
         }
       }
-      return { row: r, score: Number(r.similarity) + bonus }
+      return { row: r, score: r.similarity + bonus }
     })
     boosted.sort((a, b) => b.score - a.score)
-    return boosted.map((b) => b.row)
-  } catch {
-    return []
+    chunks = boosted.map((b) => b.row)
   }
+
+  return { chunks, floor: simFloor, maxSimilarity }
 }

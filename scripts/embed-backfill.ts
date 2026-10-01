@@ -224,7 +224,7 @@ async function main() {
   } else {
     console.log(`[backfill] Embedded ${totals.rows} rows (${totals.tokens.toLocaleString()} tokens).`)
     console.log('[backfill] Running ANALYZE on Embedding table...')
-    await prisma.$executeRawUnsafe(`ANALYZE "Embedding";`)
+    await prisma.$executeRaw`ANALYZE "Embedding"`
     console.log('[backfill] Done.')
   }
 

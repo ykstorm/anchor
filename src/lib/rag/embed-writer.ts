@@ -1,15 +1,10 @@
-import OpenAI from 'openai'
 import { getEncoding } from 'js-tiktoken'
 import { prisma } from '@/lib/prisma'
+import { getOpenAI } from '@/lib/openai'
+import { sanitizeText } from '@/lib/rag/sanitize'
 
 export type SourceType = 'project' | 'builder' | 'locality' | 'infra' | 'location_data'
 
-// Lazy client — avoids build-time API key requirement
-let _openai: OpenAI | undefined
-function getClient(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? undefined })
-  return _openai
-}
 const enc = getEncoding('cl100k_base')
 
 function countTokens(text: string): number {
@@ -136,12 +131,13 @@ export async function upsertEmbedding(
   sourceId: string,
   content: string
 ): Promise<void> {
-  const response = await getClient().embeddings.create({
+  const clean = sanitizeText(content)
+  const response = await getOpenAI().embeddings.create({
     model: 'text-embedding-3-small',
-    input: content,
+    input: clean,
   })
   const vector = response.data[0].embedding
-  const tokens = countTokens(content)
+  const tokens = countTokens(clean)
   const vectorLiteral = `[${vector.join(',')}]`
 
   // Raw SQL required — Prisma can't natively model pgvector INSERT
@@ -151,7 +147,7 @@ export async function upsertEmbedding(
       gen_random_uuid()::text,
       ${sourceType},
       ${sourceId},
-      ${content},
+      ${clean},
       ${vectorLiteral}::vector,
       ${tokens},
       NOW(),

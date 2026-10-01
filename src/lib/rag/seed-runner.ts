@@ -154,7 +154,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
     }
   }
 
-  await prisma.$executeRawUnsafe(`ANALYZE "Embedding";`)
+  await prisma.$executeRaw`ANALYZE "Embedding"`
   await prisma.$disconnect()
   return totals
 }

@@ -1,10 +1,10 @@
 import type { RetrievedChunk } from '@/lib/rag/retriever'
 
 /**
- * Structured provenance entry attached to every grounded /api/query and
- * /api/chat response. One entry per distinct (sourceType, sourceId) pair —
- * deduped across the returned chunks so a single source that produced multiple
- * chunks is reported once.
+ * Structured provenance entry attached to every grounded /api/query response.
+ * One entry per distinct (sourceType, sourceId) pair — deduped across the
+ * returned chunks so a single source that produced multiple chunks is reported
+ * once.
  */
 export type Source = {
   /** Stable identifier of the underlying record (Embedding.sourceId). */
