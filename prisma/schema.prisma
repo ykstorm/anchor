@@ -1,8 +1,4 @@
-// This is your Prisma schema file.
-// Extensions required: pgvector (for vector search)
-//
-// Run: npx prisma migrate dev
-// After adding new models, regenerate: npx prisma generate
+// Requires the pgvector extension (see the init migration).
 
 generator client {
   provider = "prisma-client-js"
@@ -12,8 +8,7 @@ datasource db {
   provider = "postgresql"
 }
 
-// ── Entity Models ─────────────────────────────────────────────────────────────
-
+// Entity Models
 model Project {
   id              String   @id @default(cuid())
   projectName     String
@@ -35,7 +30,7 @@ model Project {
   @@index([builderName])
 }
 
-// Builder trust profile — sensitive fields (contactPhone, contactEmail,
+// Builder trust profile, sensitive fields (contactPhone, contactEmail,
 // commissionRatePct, partnerStatus) are intentionally excluded from AI context.
 model Builder {
   id                  String   @id @default(cuid())
@@ -88,9 +83,8 @@ model LocationData {
   @@index([category, microMarket])
 }
 
-// ── RAG ───────────────────────────────────────────────────────────────────────
-
-// Embedding table — stores OpenAI text-embedding-3-small vectors (1536 dim).
+// RAG
+// Embedding table, stores OpenAI text-embedding-3-small vectors (1536 dim).
 // Each row is a semantic chunk of an entity, upserted on create/update.
 //
 // Score floor: 0.30 cosine similarity, applied uniformly (see SIM_FLOOR in
@@ -98,7 +92,7 @@ model LocationData {
 // (sourceType, sourceId) pair.
 //
 // The HNSW index on `embedding` (vector_cosine_ops) is created in the
-// 20261001090000_add_hnsw_index migration — Prisma cannot express an index on an
+// 20261001090000_add_hnsw_index migration, Prisma cannot express an index on an
 // Unsupported() column, so it lives in raw migration SQL.
 model Embedding {
   id         String                      @id @default(cuid())

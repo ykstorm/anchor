@@ -1,5 +1,5 @@
 /**
- * seed-runner — re-runs the embedding backfill logic inside Vercel (server-side).
+ * seed-runner, re-runs the embedding backfill logic inside Vercel (server-side).
  * Imported dynamically by src/app/api/admin/seed/route.ts.
  */
 import { upsertEmbedding } from '@/lib/rag/embed-writer'
@@ -10,7 +10,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
   const BATCH = 50
   const totals = { rows: 0, tokens: 0 }
 
-  // ── Projects ──────────────────────────────────────────────────────────────────
+  // Projects
   {
     let cursor: string | undefined
     let done = false
@@ -54,7 +54,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
     }
   }
 
-  // ── Builders ──────────────────────────────────────────────────────────────────
+  // Builders
   {
     let cursor: string | undefined
     let done = false
@@ -82,7 +82,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
     }
   }
 
-  // ── Localities ────────────────────────────────────────────────────────────────
+  // Localities
   {
     let cursor: string | undefined
     let done = false
@@ -105,7 +105,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
     }
   }
 
-  // ── Infrastructure ────────────────────────────────────────────────────────────
+  // Infrastructure
   {
     let cursor: string | undefined
     let done = false
@@ -128,7 +128,7 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
     }
   }
 
-  // ── Location data ─────────────────────────────────────────────────────────────
+  // Location data
   {
     let cursor: string | undefined
     let done = false

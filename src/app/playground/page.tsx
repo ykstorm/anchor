@@ -82,7 +82,7 @@ function PlaygroundInner() {
       <div className="max-w-3xl mx-auto px-8 pt-16 pb-8">
         <h1 className="text-3xl font-bold mb-2">RAG Playground</h1>
         <p className="text-gray-400 mb-8">
-          Query the vector store directly. No LLM — just retrieval.
+          Query the vector store directly. No LLM, just retrieval.
           <span className="text-gray-600"> When chunks = 0, the answer is refused.</span>
         </p>
         <form onSubmit={handleSubmit} className="flex gap-3">
@@ -125,17 +125,17 @@ function PlaygroundInner() {
             </div>
             {result.refused && (
               <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
-                REFUSED — no relevant chunks
+                No match above floor
               </span>
             )}
             {!result.refused && result.chunks.length > 0 && (
               <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                RETRIEVED — answering
+                Matched
               </span>
             )}
           </div>
 
-          {/* Sources — deduped provenance across the returned chunks */}
+          {/* Sources: deduped provenance across the returned chunks */}
           {result.sources && result.sources.length > 0 && (
             <div className="mb-6">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
@@ -160,7 +160,7 @@ function PlaygroundInner() {
             <div className="text-center py-16 text-gray-500">
               <div className="text-4xl mb-4">∅</div>
               <p className="text-sm">No chunks above similarity threshold.</p>
-              <p className="text-xs mt-1">Response would be refused in production.</p>
+              <p className="text-xs mt-1">No chunk cleared the similarity floor.</p>
             </div>
           ) : (
             <div className="space-y-3">

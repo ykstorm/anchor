@@ -1,11 +1,11 @@
 /**
- * Backfill script — embeds all projects, builders, localities, and infra rows.
+ * Backfill script, embeds all projects, builders, localities, and infra rows.
  *
  * Usage:
  *   npm run embed:backfill          # live run
  *   npm run embed:backfill -- --dry # count rows + estimate tokens only
  *
- * Safe to rerun — upsertEmbedding is idempotent via @@unique(sourceType, sourceId).
+ * Safe to rerun, upsertEmbedding is idempotent via @@unique(sourceType, sourceId).
  */
 
 import 'dotenv/config'
@@ -196,7 +196,7 @@ async function backfillLocationData(totals: { rows: number; tokens: number }) {
 }
 
 async function main() {
-  console.log(isDry ? '[backfill] DRY RUN — no OpenAI calls will be made' : '[backfill] LIVE RUN')
+  console.log(isDry ? '[backfill] DRY RUN, no OpenAI calls will be made' : '[backfill] LIVE RUN')
 
   const totals = { rows: 0, tokens: 0 }
 

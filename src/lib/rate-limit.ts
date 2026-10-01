@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 // caller identity and the time window. Counting is a single atomic upsert, so it
 // is correct under concurrent requests and across serverless instances.
 //
-// The caller identity is sha256(ip + UTC date), truncated — the raw IP is never
+// The caller identity is sha256(ip + UTC date), truncated, the raw IP is never
 // stored, so the table holds no directly identifying data.
 
 const MINUTE_MS = 60_000

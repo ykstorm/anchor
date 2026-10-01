@@ -11,8 +11,7 @@ function countTokens(text: string): number {
   return enc.encode(text).length
 }
 
-// ── Chunk templates ────────────────────────────────────────────────────────────
-
+// Chunk templates
 export function chunkForProject(p: {
   id: string
   projectName: string
@@ -49,7 +48,7 @@ export function chunkForProject(p: {
   return lines.join(' ')
 }
 
-// Compile-time guard — prevents sensitive builder fields from reaching AI context
+// Compile-time guard, prevents sensitive builder fields from reaching AI context
 export type BuilderAIContext = {
   id: string
   brandName: string | null | undefined
@@ -106,7 +105,7 @@ export function chunkForInfra(i: {
   )
 }
 
-// LocationData chunk — category keyword at start of content for better embedding match
+// LocationData chunk, category keyword at start of content for better embedding match
 export function chunkForLocationData(l: {
   id: string
   category: string
@@ -120,8 +119,7 @@ export function chunkForLocationData(l: {
   return l.notes ? `${base} ${l.notes}.` : base
 }
 
-// ── Core upsert ───────────────────────────────────────────────────────────────
-
+// Core upsert
 export async function upsertEmbedding(
   sourceType: SourceType,
   sourceId: string,
@@ -136,7 +134,7 @@ export async function upsertEmbedding(
   const tokens = countTokens(clean)
   const vectorLiteral = `[${vector.join(',')}]`
 
-  // Raw SQL required — Prisma can't natively model pgvector INSERT
+  // Raw SQL required, Prisma can't natively model pgvector INSERT
   await prisma.$executeRaw`
     INSERT INTO "Embedding" (id, "sourceType", "sourceId", content, embedding, tokens, "createdAt", "updatedAt")
     VALUES (
@@ -158,8 +156,7 @@ export async function upsertEmbedding(
   `
 }
 
-// ── Per-entity helpers ────────────────────────────────────────────────────────
-
+// Per-entity helpers
 export async function embedProject(projectId: string): Promise<void> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },

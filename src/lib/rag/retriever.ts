@@ -19,7 +19,7 @@ export type RetrievalResult = {
 }
 
 // Thrown when retrieval cannot complete: the embedding call failed, the DB
-// query failed, or the DB budget was exceeded. A failure is NOT a refusal — the
+// query failed, or the DB budget was exceeded. A failure is NOT a refusal, the
 // caller turns this into a 503, never an empty "no answer" result.
 export class RetrievalError extends Error {
   constructor(message: string, readonly cause?: unknown) {
@@ -37,8 +37,7 @@ export const SIM_FLOOR = 0.30
 // Milliseconds to wait on the pgvector query before treating it as a failure.
 const DB_TIMEOUT_MS = 5000
 
-// ── Amenity-category detection ──────────────────────────────────────────────
-
+// Amenity-category detection
 const AMENITY_CATEGORIES: Record<string, RegExp> = {
   park:      /\b(park|parks|garden|gardens)\b/i,
   hospital:  /\b(hospital|hospitals|clinic|clinics|healthcare)\b/i,
@@ -62,8 +61,7 @@ export function detectAmenityCategories(query: string): string[] {
   return hit
 }
 
-// ── Retrieval ───────────────────────────────────────────────────────────────
-
+// Retrieval
 /**
  * Retrieve semantic chunks from the Embedding table.
  *
