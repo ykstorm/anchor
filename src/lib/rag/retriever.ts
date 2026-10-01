@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { getOpenAI } from '@/lib/openai'
 import { sanitizeText } from '@/lib/rag/sanitize'
@@ -37,7 +38,30 @@ export const SIM_FLOOR = 0.30
 // Milliseconds to wait on the pgvector query before treating it as a failure.
 const DB_TIMEOUT_MS = 5000
 
+// Query-embedding cache: identical queries reuse their vector instead of paying
+// for another embedding call. Small LRU keyed by sha256 of the sanitized query.
+const EMBED_CACHE_MAX = 500
+const embedCache = new Map<string, number[]>()
+
+function cacheGet(key: string): number[] | undefined {
+  const vec = embedCache.get(key)
+  if (vec) {
+    embedCache.delete(key)
+    embedCache.set(key, vec)
+  }
+  return vec
+}
+
+function cacheSet(key: string, vec: number[]): void {
+  embedCache.set(key, vec)
+  if (embedCache.size > EMBED_CACHE_MAX) {
+    const oldest = embedCache.keys().next().value
+    if (oldest !== undefined) embedCache.delete(oldest)
+  }
+}
+
 // Amenity-category detection
+
 const AMENITY_CATEGORIES: Record<string, RegExp> = {
   park:      /\b(park|parks|garden|gardens)\b/i,
   hospital:  /\b(hospital|hospitals|clinic|clinics|healthcare)\b/i,
@@ -61,16 +85,73 @@ export function detectAmenityCategories(query: string): string[] {
   return hit
 }
 
-// Retrieval
+// Embed a sanitized query, with an LRU cache. Throws RetrievalError on failure.
+export async function embedQuery(cleanQuery: string): Promise<number[]> {
+  const key = createHash('sha256').update(cleanQuery).digest('hex')
+  const cached = cacheGet(key)
+  if (cached) return cached
+  try {
+    const res = await getOpenAI().embeddings.create({
+      model: 'text-embedding-3-small',
+      input: cleanQuery,
+    })
+    const vec = res.data[0].embedding
+    cacheSet(key, vec)
+    return vec
+  } catch (err) {
+    throw new RetrievalError('embedding failed', err)
+  }
+}
+
+// Run the pgvector cosine search under a time budget. Throws RetrievalError on
+// failure or timeout.
+export async function searchVectors(vec: number[], k: number): Promise<RetrievedChunk[]> {
+  const vecStr = `[${vec.join(',')}]`
+  try {
+    const dbQuery = prisma.$queryRaw<RetrievedChunk[]>`
+      SELECT "sourceType", "sourceId", "content",
+        (1 - (embedding <=> ${vecStr}::vector))::float8 AS similarity
+      FROM "Embedding"
+      ORDER BY embedding <=> ${vecStr}::vector
+      LIMIT ${k}
+    `
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const dbTimeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new RetrievalError('db query timed out')), DB_TIMEOUT_MS)
+    })
+    try {
+      return await Promise.race([dbQuery, dbTimeout])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  } catch (err) {
+    if (err instanceof RetrievalError) throw err
+    throw new RetrievalError('db query failed', err)
+  }
+}
+
+// Reorder amenity results: promote location_data rows that name a detected
+// category. Pure, no I/O.
+export function rerankAmenity(chunks: RetrievedChunk[], amenityHits: string[]): RetrievedChunk[] {
+  const scored = chunks.map((r) => {
+    let bonus = 0
+    if (r.sourceType === 'location_data') {
+      const contentLower = r.content.toLowerCase()
+      bonus = amenityHits.some((c) => contentLower.startsWith(`${c} in `)) ? 0.15 : 0.05
+    }
+    return { row: r, score: r.similarity + bonus }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.map((s) => s.row)
+}
+
 /**
  * Retrieve semantic chunks from the Embedding table.
  *
- * Amenity queries widen recall (more candidates, plus a category boost on
- * location_data rows) but the similarity floor is NEVER lowered by the query
- * text: a weak match stays a refusal.
- *
- * Throws RetrievalError if embedding or the DB query fails. An empty result
- * (no candidate cleared the floor) is a refusal, not an error.
+ * Amenity queries widen recall (more candidates, plus a category boost) but the
+ * similarity floor is NEVER lowered by the query text: a weak match stays a
+ * refusal. Throws RetrievalError if embedding or the DB query fails. An empty
+ * result (no candidate cleared the floor) is a refusal, not an error.
  */
 export async function retrieveChunks(
   query: string,
@@ -80,67 +161,13 @@ export async function retrieveChunks(
   const amenityHits = detectAmenityCategories(query)
   const isAmenityQuery = amenityHits.length > 0
   const effectiveK = isAmenityQuery ? Math.max(k, 10) : k
-  const cleanQuery = sanitizeText(query)
 
-  let vec: number[]
-  try {
-    const embeddingRes = await getOpenAI().embeddings.create({
-      model: 'text-embedding-3-small',
-      input: cleanQuery,
-    })
-    vec = embeddingRes.data[0].embedding
-  } catch (err) {
-    throw new RetrievalError('embedding failed', err)
-  }
-  const vecStr = `[${vec.join(',')}]`
+  const vec = await embedQuery(sanitizeText(query))
+  const rows = await searchVectors(vec, effectiveK)
 
-  let rows: RetrievedChunk[]
-  try {
-    const dbQuery = prisma.$queryRaw<RetrievedChunk[]>`
-      SELECT "sourceType", "sourceId", "content",
-        (1 - (embedding <=> ${vecStr}::vector))::float8 AS similarity
-      FROM "Embedding"
-      ORDER BY embedding <=> ${vecStr}::vector
-      LIMIT ${effectiveK}
-    `
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const dbTimeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new RetrievalError('db query timed out')), DB_TIMEOUT_MS)
-    })
-    try {
-      rows = await Promise.race([dbQuery, dbTimeout])
-    } finally {
-      if (timer) clearTimeout(timer)
-    }
-  } catch (err) {
-    if (err instanceof RetrievalError) throw err
-    throw new RetrievalError('db query failed', err)
-  }
-
-  const maxSimilarity = rows.length > 0
-    ? Math.max(...rows.map((r) => r.similarity))
-    : null
-
+  const maxSimilarity = rows.length > 0 ? Math.max(...rows.map((r) => r.similarity)) : null
   const filtered = rows.filter((r) => r.similarity >= simFloor)
-
-  // Amenity boost: promote location_data rows whose content names the detected category
-  let chunks = filtered
-  if (isAmenityQuery) {
-    const boosted = filtered.map((r) => {
-      let bonus = 0
-      if (r.sourceType === 'location_data') {
-        const contentLower = r.content.toLowerCase()
-        if (amenityHits.some((c) => contentLower.startsWith(`${c} in `))) {
-          bonus += 0.15
-        } else {
-          bonus += 0.05
-        }
-      }
-      return { row: r, score: r.similarity + bonus }
-    })
-    boosted.sort((a, b) => b.score - a.score)
-    chunks = boosted.map((b) => b.row)
-  }
+  const chunks = isAmenityQuery ? rerankAmenity(filtered, amenityHits) : filtered
 
   return { chunks, floor: simFloor, maxSimilarity }
 }

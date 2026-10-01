@@ -13,3 +13,7 @@ coverage/
 
 # local pre-polish README backup (not tracked)
 README.pre-polish.md
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo

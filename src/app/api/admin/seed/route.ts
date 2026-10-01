@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const { seedDemoData } = await import('@/lib/rag/demo-seeder')
     const { embedAndStore } = await import('@/lib/rag/seed-runner')
     const loaded = await seedDemoData()
-    const embedded = await embedAndStore('./corpus')
+    const embedded = await embedAndStore()
     return NextResponse.json({ ok: true, loaded, embedded })
   } catch (e) {
     console.error('[admin/seed] failed:', e)

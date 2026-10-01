@@ -22,7 +22,7 @@ async function main() {
   }
 
   console.log('[seed] embedding corpus into pgvector (OpenAI text-embedding-3-small)…')
-  const embedded = await embedAndStore('./corpus')
+  const embedded = await embedAndStore()
   console.log('[seed] embeddings written:', embedded)
 }
 
