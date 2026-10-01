@@ -91,7 +91,7 @@ function PlaygroundInner() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. Which Goyal & Co. projects in Shela are ready to move in?"
+            placeholder="e.g. Which Builder A projects in North Ridge are ready to move in?"
             className="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors text-sm"
             maxLength={800}
           />

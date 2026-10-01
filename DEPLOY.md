@@ -3,7 +3,7 @@
 Three deploy modes:
 
 1. **Local dev** — `docker compose up`, 60 seconds
-2. **Vercel + Neon** — production, free tier, anchor.lakshyaraj.dev
+2. **Vercel + Neon** — production, free tier, anchor.example.com
 3. **Self-hosted** — your Kubernetes, Fly.io, Render, any Postgres-with-pgvector
 
 ---
@@ -15,7 +15,7 @@ git clone https://github.com/ykstorm/anchor && cd anchor
 cp .env.example .env
 # paste your OPENAI_API_KEY into .env
 docker compose up -d
-docker compose exec app npm run seed   # ~30s, embeds 10 public-domain docs
+docker compose exec app npm run seed   # ~30s, seeds the demo corpus (60 rows)
 open http://localhost:3000/playground
 ```
 
@@ -49,7 +49,7 @@ Wipe data: `docker compose down -v`
 5. Deploy.
 
 **Custom domain:**
-1. Vercel → Project → Settings → Domains → add `anchor.lakshyaraj.dev`
+1. Vercel → Project → Settings → Domains → add `anchor.example.com`
 2. Add CNAME `anchor` → `cname.vercel-dns.com` in your DNS
 
 **Seed the demo corpus:**
@@ -58,9 +58,12 @@ Wipe data: `docker compose down -v`
 DATABASE_URL='<neon prod url>' npm run seed
 ```
 
-**Expected p50 latency:**
-- Cold start: ~1.2s (Vercel serverless)
-- Warm: 220ms (embed: 180ms, pgvector: 25ms, provenance lookup: 15ms)
+**Latency notes:**
+- The DB-side vector search is ~1-3ms on the benchmark table (see the README
+  performance table and `bench/latency-scale.mjs`).
+- End-to-end latency is dominated by the OpenAI embedding API call, which is not
+  benchmarked here and varies with API load. Vercel cold starts add their own
+  one-off cost.
 
 ---
 
@@ -133,7 +136,7 @@ spec:
             limits:   { cpu: 500m, memory: 512Mi }
 ```
 
-A reference Helm chart is in [`infra/helm/anchor`](./infra/helm/anchor).
+The manifest above is a minimal starting point; there is no bundled Helm chart.
 
 ---
 
@@ -153,16 +156,16 @@ OpenAI embedding cost: $0.02 per million tokens. A typical query embeds ~50 toke
 ## Smoke test after deploy
 
 ```bash
-HOST=https://anchor.lakshyaraj.dev   # or your URL
+HOST=https://anchor.example.com   # or your URL
 
 # 1. Health (liveness)
 curl -fsS $HOST/api/health
-# expected: {"ok":true}
+# expected: {"ok":true,"db":true}
 
 # 2. Known-good query (chunks should return) — matches the seeded corpus
 curl -fsS -X POST $HOST/api/query \
   -H "Content-Type: application/json" \
-  -d '{"q":"Which Goyal & Co. projects in Shela are ready to move in?"}'
+  -d '{"q":"Which Builder A projects in North Ridge are ready to move in?"}'
 # expected: chunks: [...], refused: false, sources: [...]
 
 # 3. Known-bad query (should be refused)
@@ -172,7 +175,7 @@ curl -fsS -X POST $HOST/api/query \
 # expected: chunks: [], refused: true, sources: []
 ```
 
-If any smoke test fails, check Vercel logs (`vercel logs`) and Sentry dashboard. Common issues:
+If any smoke test fails, check Vercel logs (`vercel logs`). Common issues:
 
 - **`vector extension not enabled`** → enable it in Neon dashboard, run `CREATE EXTENSION vector;`
 - **`OPENAI_API_KEY missing`** → re-add in Vercel env vars, redeploy

@@ -2,12 +2,12 @@
   "name": "@ykstorm/anchor",
   "version": "0.1.0",
   "private": true,
-  "description": "Provenance-first RAG that refuses to hallucinate. Postgres + pgvector + idempotent upsert + cosine floor.",
+  "description": "Retrieval for pgvector that returns no answer when the best match is too weak, and names the source of every chunk it returns.",
   "repository": {
     "type": "git",
     "url": "https://github.com/ykstorm/anchor.git"
   },
-  "homepage": "https://anchor.lakshyaraj.dev",
+  "homepage": "https://anchor-iota-ten.vercel.app",
   "keywords": [
     "rag",
     "pgvector",
@@ -28,9 +28,6 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
-    "seed:backfill": "tsx scripts/embed-backfill.ts --corpus=./corpus",
-    "calibrate": "tsx scripts/calibrate-floor.ts",
-    "test:e2e": "tsx scripts/e2e.ts",
     "embed:backfill": "tsx scripts/embed-backfill.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",

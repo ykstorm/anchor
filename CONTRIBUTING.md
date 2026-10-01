@@ -12,7 +12,7 @@ cp .env.example .env
 npm install
 npx prisma migrate dev
 docker compose up -d
-curl -X POST http://localhost:3000/api/admin/seed   # seed demo corpus
+curl -X POST http://localhost:3000/api/admin/seed -H "x-seed-token: $SEED_TOKEN"   # seed demo corpus
 npm run dev
 ```
 
@@ -26,7 +26,7 @@ anchor/
 │       ├── retriever.ts    # Retrieval pipeline (embed → pgvector → floor)
 │       └── embed-writer.ts # Embed pipeline (chunk → upsert)
 ├── tests/                  # Vitest unit tests
-├── scripts/                # Dev scripts (backfill, calibrate, e2e)
+├── scripts/                # Dev scripts (embed-backfill)
 └── docs/architecture.md   # System design reference
 ```
 
@@ -71,7 +71,7 @@ docker compose down -v     # stop + wipe data
 
 ```bash
 curl http://localhost:3000/api/health
-# → {"ok":true,"db":"healthy","embedder":"healthy"}
+# → {"ok":true,"db":true}
 ```
 
 ## Key files for common changes
@@ -79,7 +79,7 @@ curl http://localhost:3000/api/health
 | Change | File(s) |
 |--------|---------|
 | Add embed function | `src/lib/rag/embed-writer.ts` |
-| Change cosine floor | `src/lib/rag/retriever.ts` (`SIM_FLOOR_NORMAL`, `SIM_FLOOR_AMENITY`) |
+| Change cosine floor | `src/lib/rag/retriever.ts` (`SIM_FLOOR`) |
 | Add new entity type | `src/lib/rag/embed-writer.ts` + `prisma/schema.prisma` |
 | Change chunk size | `src/lib/rag/embed-writer.ts` (`chunkFor*` functions) |
 | Add API route | `src/app/api/<name>/route.ts` |

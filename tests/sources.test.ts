@@ -67,9 +67,9 @@ describe('buildSources', () => {
   })
 
   it('each entry exposes the advertised provenance shape', () => {
-    const [s] = buildSources([chunk({ sourceType: 'builder', sourceId: 'goyal', similarity: 0.7 })])
+    const [s] = buildSources([chunk({ sourceType: 'builder', sourceId: 'builder-a', similarity: 0.7 })])
     expect(s).toMatchObject({
-      sourceId: 'goyal',
+      sourceId: 'builder-a',
       sourceType: 'builder',
       similarity: 0.7,
       chunkCount: 1,

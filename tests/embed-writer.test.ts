@@ -41,9 +41,9 @@ function chunkForProject(p: {
 describe('chunkForProject', () => {
   it('formats price range in Cr', () => {
     const chunk = chunkForProject({
-      projectName: 'Gala Imperium',
-      builderName: 'Gala Developers',
-      microMarket: 'Kasarwadi, Pune',
+      projectName: 'North Court',
+      builderName: 'Builder A',
+      microMarket: 'North Ridge',
       configurations: '2BHK, 3BHK',
       minPrice: 5000000,
       maxPrice: 7500000,
@@ -57,15 +57,15 @@ describe('chunkForProject', () => {
     expect(chunk).toContain('0.5Cr')
     expect(chunk).toContain('0.8Cr')
     expect(chunk).toContain('Phase 2 delayed')
-    expect(chunk).toContain('Gala Imperium')
-    expect(chunk).toContain('Kasarwadi, Pune')
+    expect(chunk).toContain('North Court')
+    expect(chunk).toContain('North Ridge')
   })
 
   it('skips price range when minPrice=0', () => {
     const chunk = chunkForProject({
       projectName: 'TBD',
-      builderName: 'Unknown',
-      microMarket: 'Pune',
+      builderName: 'Builder B',
+      microMarket: 'North Ridge',
       configurations: '1BHK',
       minPrice: 0,
       maxPrice: 0,
@@ -84,8 +84,8 @@ describe('chunkForProject', () => {
   it('handles null configurations', () => {
     const chunk = chunkForProject({
       projectName: 'Test',
-      builderName: 'Test Builder',
-      microMarket: 'Pune',
+      builderName: 'Builder C',
+      microMarket: 'North Ridge',
       configurations: null,
       minPrice: 3000000,
       maxPrice: 4000000,
@@ -103,8 +103,8 @@ describe('chunkForProject', () => {
   it('handles empty amenities array', () => {
     const chunk = chunkForProject({
       projectName: 'No Amenities',
-      builderName: 'Test',
-      microMarket: 'Pune',
+      builderName: 'Builder D',
+      microMarket: 'North Ridge',
       configurations: '1BHK',
       minPrice: 2000000,
       maxPrice: 3000000,
@@ -121,8 +121,8 @@ describe('chunkForProject', () => {
   it('skips null honestConcern and analystNote', () => {
     const chunk = chunkForProject({
       projectName: 'Clean',
-      builderName: 'Test',
-      microMarket: 'Pune',
+      builderName: 'Builder D',
+      microMarket: 'North Ridge',
       configurations: '1BHK',
       minPrice: 2000000,
       maxPrice: 3000000,

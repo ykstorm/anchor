@@ -1,6 +1,6 @@
 # Anchor — single-command bring-up
 # docker compose up -d                  # postgres + app
-# docker compose exec app npm run seed  # loads 10 public-domain docs
+# docker compose exec app npm run seed  # seeds the demo corpus (60 rows)
 # open http://localhost:3000
 
 services:
@@ -56,7 +56,7 @@ services:
     container_name: anchor-pgadmin
     profiles: ["debug"]                  # only starts with: docker compose --profile debug up
     environment:
-      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@anchor.dev}"
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@example.com}"
       PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:-anchor}"
       PGADMIN_LISTEN_PORT: 5050
     ports:

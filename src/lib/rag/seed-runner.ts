@@ -142,8 +142,8 @@ async function embedAndStore(_corpusPath: string): Promise<{ rows: number; token
       if (rows.length === 0) break
       for (const l of rows) {
         const cat = l.category.toLowerCase()
-        const areaLabel = l.microMarket === 'SBopal' ? 'South Bopal' : l.microMarket === 'Shela' ? 'Shela' : l.microMarket === 'Bopal' ? 'Bopal' : l.microMarket
-        const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel} (${l.microMarket}).`
+        const areaLabel = l.microMarket
+        const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel}.`
         const content = l.notes ? `${base} ${l.notes}.` : base
         totals.tokens += Math.ceil(content.length / 4)
         totals.rows += 1

@@ -115,12 +115,8 @@ export function chunkForLocationData(l: {
   notes: string | null
 }): string {
   const cat = l.category.toLowerCase()
-  const areaLabel =
-    l.microMarket === 'SBopal' ? 'South Bopal' :
-    l.microMarket === 'Shela'  ? 'Shela' :
-    l.microMarket === 'Bopal'  ? 'Bopal' :
-    l.microMarket
-  const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel} (${l.microMarket}).`
+  const areaLabel = l.microMarket
+  const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel}.`
   return l.notes ? `${base} ${l.notes}.` : base
 }
 
