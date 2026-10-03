@@ -29,7 +29,9 @@ const SECURITY_HEADERS = [
 ]
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // 'standalone' is for the Docker image. On Vercel it breaks output
+  // tracing (next-server.js.nft.json is never written), so skip it there.
+  ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
   async headers() {
     return [{ source: '/:path*', headers: SECURITY_HEADERS }]
   },
