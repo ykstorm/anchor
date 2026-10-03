@@ -4,13 +4,10 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 const url = process.env.DATABASE_URL ?? ''
 
-// Pick the driver adapter by host:
-//   • Neon (serverless HTTP) — used by the live Vercel + Neon deployment.
-//   • node-postgres (TCP)    — used for local Docker pgvector and any plain
-//                              Postgres, so the README quickstart works on a
-//                              clean machine with `docker-compose up -d`.
-// The Neon HTTP adapter cannot speak to a local TCP Postgres, so falling back
-// to PrismaPg is what makes the local dev story real.
+// Neon URLs use the serverless HTTP adapter; everything else (local Docker
+// pgvector, any plain Postgres) uses node-postgres over TCP. The Neon HTTP
+// adapter cannot talk to a local TCP Postgres, so this fallback is what makes
+// the local dev story work.
 const isNeon = /neon\.tech|neon\.build|pooler\.|\.neon\./i.test(url)
 
 function makeAdapter() {

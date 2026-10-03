@@ -2,7 +2,9 @@
 
 ## Why this document exists
 
-Most "RAG system" diagrams are happy-path arrows: query → embed → search → answer. They hide where things go wrong. This doc traces both paths — happy and unhappy — and shows where each defensive layer earns its keep.
+Most "RAG system" diagrams are happy-path arrows: query → embed → search →
+answer. They hide where things go wrong. This doc traces both paths — the match
+and the miss — and shows where each check earns its keep.
 
 ---
 
@@ -18,14 +20,13 @@ graph TB
         API[/api/query<br/>POST handler/]
         Intent[Intent classifier]
         Retriever[Retriever<br/>retriever.ts]
-        Embedder[Embedder<br/>OpenAI / future: Anthropic, Ollama]
-        Provenance[Provenance API<br/>chunk → sourceId]
+        Embedder[Embedder<br/>OpenAI text-embedding-3-small]
+        Provenance[Provenance<br/>sources.ts]
         Health[/api/health/]
     end
 
     subgraph Storage
         PG[(Postgres + pgvector)]
-        Docs[(Documents)]
         Chunks[(Embedding chunks)]
     end
 
@@ -54,7 +55,7 @@ graph TB
     classDef defense fill:#fee2e2,stroke:#dc2626
     classDef happy fill:#dcfce7,stroke:#16a34a
 
-    class PG,Docs,Chunks storage
+    class PG,Chunks storage
     class Retriever,Provenance defense
     class Embedder,Chunker happy
 ```
@@ -72,34 +73,39 @@ sequenceDiagram
     participant R as Retriever
     participant E as Embedder
     participant V as pgvector
-    participant P as Provenance API
+    participant P as Provenance
     participant L as LLM (caller)
 
-    U->>API: {"q": "schools near Bopal"}
+    U->>API: {"q": "schools near North Ridge"}
     API->>I: classify(q)
-    I-->>API: intent=amenity → K=10, floor=0.20
-    API->>R: retrieve(q, K, floor)
-    R->>E: embed(q)  [1500ms timeout]
+    I-->>API: intent=amenity → K=10 (floor unchanged: 0.30)
+    API->>R: retrieve(q, K)
+    R->>E: embed(sanitize(q))  [8000ms client timeout]
     E-->>R: vector(1536)
-    R->>V: SELECT ... ORDER BY embedding <=> q_vec LIMIT 10
+    R->>V: SELECT ... ORDER BY embedding <=> q_vec LIMIT 10  [5000ms budget]
     V-->>R: 10 candidates with scores
-    R->>R: filter where score ≥ 0.20
-    Note over R: ALL below 0.20?<br/>return [] (no source)
+    R->>R: filter where score ≥ 0.30
+    Note over R: ALL below 0.30?<br/>return [] (refused, with maxSimilarity)
 
     alt chunks found
-        R-->>API: {chunks[], scores[], sourceIds[]}
-        API->>P: lookupSources(sourceIds)
-        P-->>API: sources[]  (title, url, type)
+        R-->>API: {chunks[], floor, maxSimilarity}
+        API->>P: buildSources(chunks)
+        P-->>API: sources[]  (sourceType, sourceId, similarity, chunkCount)
         API-->>L: prompt + provenance-tagged context
         L-->>U: answer + sources
-    else nothing crossed floor
-        R-->>API: {chunks: [], refused: true}
-        API-->>L: prompt + "no source found" sentinel
-        L-->>U: "I don't have a source for that. Try X."
+    else nothing crossed the floor
+        R-->>API: {chunks: [], floor, maxSimilarity}
+        API-->>L: refused: true
+        L-->>U: "I don't have a source for that."
     end
 ```
 
-**Why the sentinel matters.** The LLM is not free-running. It is told explicitly: when `chunks: []` and `refused: true`, do not synthesize from priors. Defer to a fallback action (ask clarifying question, suggest documentation link, suggest contacting human). This is the difference between Anchor and a naive top-K retriever — the unhappy path is engineered, not implicit.
+**Why the no-answer path matters.** When `chunks: []` and `refused: true`, the
+caller must not synthesize from priors — it should fall back (ask a clarifying
+question, point to documentation, hand off to a human). That engineered miss is
+the difference between Anchor and a naive top-K retriever. A failure, by contrast,
+is not a miss: an embedding or DB error raises `RetrievalError` and the route
+returns 503, so the caller never mistakes a broken dependency for "no answer".
 
 ---
 
@@ -116,56 +122,55 @@ sequenceDiagram
     participant L as Embedding table
 
     Op->>Seed: npm run seed
-    Seed->>Seed: list documents in /corpus
-    loop per document
-        Seed->>Chunk: chunkForDocType(doc)
-        Chunk-->>Seed: chunks[] with positions
-        loop per chunk
-            Seed->>E: embed(chunkText)
-            E-->>Seed: vector(1536)
-            Seed->>L: UPSERT (docId, position, contentHash, vector)
-            Note over L: idempotent: same hash = same row<br/>OpenAI bill paid once
-        end
+    Seed->>Seed: read rows from the seeded tables
+    loop per entity
+        Seed->>Chunk: chunkFor<Entity>(row)
+        Chunk-->>Seed: sanitized chunk text
+        Seed->>E: embed(chunkText)
+        E-->>Seed: vector(1536)
+        Seed->>L: UPSERT (sourceType, sourceId, content, vector)
+        Note over L: idempotent on (sourceType, sourceId)
     end
-    Seed-->>Op: report (embedded N chunks, cost $X)
+    Seed-->>Op: report (embedded N rows)
 ```
 
 ---
 
-## 4. The five defensive layers
+## 4. The checks that make a miss safe
 
-Inherited from the buyerchat anti-fabrication architecture, three of them land in Anchor:
+Three checks, all in this repo:
 
-| # | Layer | Where it lives | What it catches |
+| # | Check | Where it lives | What it catches |
 |---|---|---|---|
-| 1 | Cosine floor | `retriever.ts:filterByFloor` | Top-K results that are technically returned but semantically irrelevant |
-| 2 | 600 ms timeout | `retriever.ts:withTimeout` | Slow embedder or DB → silent degradation, not 30s hang |
-| 3 | Provenance API | `lib/provenance.ts` | LLM citation drift — chunk goes in, sourceId must come out |
-| 4 | Adaptive K | `retriever.ts:classifyIntent` | Amenity queries starved of recall; precision queries flooded with noise |
-| 5 | Idempotent upsert | `scripts/embed-backfill.ts` | Re-seed bloats the table, doubles cost, confuses retrieval |
+| 1 | Cosine floor | `retriever.ts` (`SIM_FLOOR` filter) | Top-K results that are returned but too weak to answer from |
+| 2 | Failure ≠ refusal | `retriever.ts` (`RetrievalError`) → `api/query` 503 | A broken embedder/DB reported as a false "no answer" |
+| 3 | Provenance | `sources.ts` (`buildSources`) | A chunk going in without a named source coming out |
 
-Layers 2 (markdown abort) and 4 (regex audit) from buyerchat live in a sibling project: **Streamward**.
+The floor is never lowered by the query text — amenity queries widen K and boost
+on-topic location rows, but a weak match stays a refusal.
 
 ---
 
 ## 5. Failure modes (intentional)
 
-| Failure | Anchor behavior | What you DON'T get |
-|---|---|---|
-| DB query timeout (>1500ms, >5000ms amenity) | Returns empty chunks + `refused: true` | A 30s hang while the DB is slow |
-| All chunks below floor | Returns empty chunks + `refused: true` | The LLM stitching together unrelated documents |
-| DB connection drop | Returns empty chunks + Sentry alert | A crashing API route |
-| Malformed query (empty string) | 400 Bad Request | A wasted embedding call |
-| Duplicate seed run | Idempotent — same hash → same row | Doubled embedding cost + duplicate retrieval hits |
+| Situation | Anchor behavior |
+|---|---|
+| All candidates below the floor | Empty chunks + `refused: true` + `maxSimilarity` reported |
+| DB query exceeds the 5000ms budget | `RetrievalError` → 503 (not a refusal) |
+| Embedding call fails | `RetrievalError` → 503 (not a refusal) |
+| DB connection drops | `RetrievalError` → 503; error logged server-side |
+| Malformed request (bad JSON, empty `q`, non-JSON body, foreign Origin) | 400 / 415 / 403 before any embedding call |
+| Too many requests | 429 + `Retry-After` (20/min per caller, 1000/hr global) |
+| Duplicate seed run | Idempotent upsert on `(sourceType, sourceId)` |
 
 ---
 
 ## 6. What's intentionally out of scope (v0.1)
 
-- **Re-ranking.** Cross-encoder re-rank pass would improve quality at the cost of latency. We expose a hook (`afterRetrieve(chunks)`) but ship without one. Add yours if you need it.
-- **Hybrid retrieval (BM25 + vector).** Proper nouns hurt pure vector search. Hybrid retrieval is on the v0.3 roadmap.
-- **Multi-tenant isolation.** Single-tenant Postgres schema. v0.3 adds namespace per tenant.
-- **Streaming.** Anchor returns chunks synchronously. Streaming the LLM response is the caller's job (Anchor's sibling **Streamward** handles mid-stream safety).
+- **Re-ranking.** A cross-encoder rerank pass would improve quality at a latency cost. Not shipped.
+- **Hybrid retrieval (BM25 + vector).** Proper nouns hurt pure vector search; hybrid is future work.
+- **Multi-tenant isolation.** Single-tenant Postgres schema; there is no per-tenant namespace.
+- **Streaming.** Anchor returns chunks synchronously. Streaming a model response is the caller's job.
 
 ---
 
@@ -173,23 +178,20 @@ Layers 2 (markdown abort) and 4 (regex audit) from buyerchat live in a sibling p
 
 ```mermaid
 graph LR
-    User[User] -->|HTTPS| Edge[Vercel Edge]
-    Edge --> App[Anchor Next.js<br/>Vercel serverless]
-    App -->|pooled| Neon[(Neon Postgres<br/>pgvector pre-installed)]
+    User[User] -->|HTTPS| App[Anchor Next.js<br/>Vercel serverless]
+    App -->|pooled| Neon[(Neon Postgres<br/>pgvector)]
     App --> OpenAI[OpenAI embeddings API]
 
-    classDef edge fill:#e0e7ff,stroke:#4f46e5
     classDef compute fill:#dcfce7,stroke:#16a34a
     classDef data fill:#fef3c7,stroke:#ca8a04
 
-    class Edge edge
     class App compute
     class Neon,OpenAI data
 ```
 
-- **Compute:** Vercel Next.js serverless functions (no cold-start tax on Edge runtime for /api/query)
-- **Database:** Neon Postgres (Free tier supports pgvector natively, autoscaling, branching for preview deploys)
-- **Embedder:** OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on document size and API load)
-- **Observability:** Sentry for errors, Vercel Analytics for latency, OpenTelemetry hooks exposed but unopinionated
+- **Compute:** Vercel serverless functions (Node runtime).
+- **Database:** Neon Postgres (free tier supports pgvector, with branching for preview deploys).
+- **Embedder:** OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on load).
+- **Observability:** Vercel Analytics for page latency (query strings stripped before send).
 
-Self-hosted alternative: any Postgres with pgvector + any Node runtime. Anchor is portable by design.
+Self-hosted alternative: any Postgres with pgvector + any Node runtime.

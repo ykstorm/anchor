@@ -1,13 +1,13 @@
 # Roadmap
 
-## v1.0 — Current: Provenance-first RAG
-- [x] Cosine floor (0.30 normal, 0.20 amenity)
+## v0.1 — Current
+- [x] Cosine floor (0.30, uniform)
 - [x] Adaptive K (6 normal, 10 amenity)
 - [x] Idempotent upsert by (entityType, entityId)
 - [x] pgvector retrieval pipeline
-- [x] 15 unit tests (retriever: 10, embed-writer: 5)
+- [x] 50 unit tests
 - [x] Docker Compose (Postgres + pgvector + app)
-- [x] Multi-tenancy via `sourceType` + `sourceId` keys
+- [ ] Multi-tenancy — not implemented; the schema is single-tenant
 
 ## v1.1 — Observability
 - [ ] Query latency histogram in response headers

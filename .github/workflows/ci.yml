@@ -33,7 +33,7 @@ jobs:
         run: DATABASE_URL="postgresql://ci:ci@localhost:5432/anchor" npx prisma generate
 
       - name: Lint
-        run: npm run lint || true
+        run: npm run lint
 
       - name: Typecheck
         run: npx tsc --noEmit

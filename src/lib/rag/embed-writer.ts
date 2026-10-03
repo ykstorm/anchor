@@ -1,23 +1,17 @@
-import OpenAI from 'openai'
 import { getEncoding } from 'js-tiktoken'
 import { prisma } from '@/lib/prisma'
+import { getOpenAI } from '@/lib/openai'
+import { sanitizeText } from '@/lib/rag/sanitize'
 
 export type SourceType = 'project' | 'builder' | 'locality' | 'infra' | 'location_data'
 
-// Lazy client — avoids build-time API key requirement
-let _openai: OpenAI | undefined
-function getClient(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? undefined })
-  return _openai
-}
 const enc = getEncoding('cl100k_base')
 
 function countTokens(text: string): number {
   return enc.encode(text).length
 }
 
-// ── Chunk templates ────────────────────────────────────────────────────────────
-
+// Chunk templates
 export function chunkForProject(p: {
   id: string
   projectName: string
@@ -54,7 +48,7 @@ export function chunkForProject(p: {
   return lines.join(' ')
 }
 
-// Compile-time guard — prevents sensitive builder fields from reaching AI context
+// Compile-time guard, prevents sensitive builder fields from reaching AI context
 export type BuilderAIContext = {
   id: string
   brandName: string | null | undefined
@@ -111,7 +105,7 @@ export function chunkForInfra(i: {
   )
 }
 
-// LocationData chunk — category keyword at start of content for better embedding match
+// LocationData chunk, category keyword at start of content for better embedding match
 export function chunkForLocationData(l: {
   id: string
   category: string
@@ -120,38 +114,34 @@ export function chunkForLocationData(l: {
   notes: string | null
 }): string {
   const cat = l.category.toLowerCase()
-  const areaLabel =
-    l.microMarket === 'SBopal' ? 'South Bopal' :
-    l.microMarket === 'Shela'  ? 'Shela' :
-    l.microMarket === 'Bopal'  ? 'Bopal' :
-    l.microMarket
-  const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel} (${l.microMarket}).`
+  const areaLabel = l.microMarket
+  const base = `${cat} in ${areaLabel}: ${l.name}. Located in ${areaLabel}.`
   return l.notes ? `${base} ${l.notes}.` : base
 }
 
-// ── Core upsert ───────────────────────────────────────────────────────────────
-
+// Core upsert
 export async function upsertEmbedding(
   sourceType: SourceType,
   sourceId: string,
   content: string
 ): Promise<void> {
-  const response = await getClient().embeddings.create({
+  const clean = sanitizeText(content)
+  const response = await getOpenAI().embeddings.create({
     model: 'text-embedding-3-small',
-    input: content,
+    input: clean,
   })
   const vector = response.data[0].embedding
-  const tokens = countTokens(content)
+  const tokens = countTokens(clean)
   const vectorLiteral = `[${vector.join(',')}]`
 
-  // Raw SQL required — Prisma can't natively model pgvector INSERT
+  // Raw SQL required, Prisma can't natively model pgvector INSERT
   await prisma.$executeRaw`
     INSERT INTO "Embedding" (id, "sourceType", "sourceId", content, embedding, tokens, "createdAt", "updatedAt")
     VALUES (
       gen_random_uuid()::text,
       ${sourceType},
       ${sourceId},
-      ${content},
+      ${clean},
       ${vectorLiteral}::vector,
       ${tokens},
       NOW(),
@@ -164,120 +154,4 @@ export async function upsertEmbedding(
       tokens    = EXCLUDED.tokens,
       "updatedAt" = NOW()
   `
-}
-
-// ── Per-entity helpers ────────────────────────────────────────────────────────
-
-export async function embedProject(projectId: string): Promise<void> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: {
-      id: true,
-      projectName: true,
-      builderName: true,
-      microMarket: true,
-      configurations: true,
-      minPrice: true,
-      maxPrice: true,
-      possessionDate: true,
-      amenities: true,
-      honestConcern: true,
-      analystNote: true,
-      priceNote: true,
-      decisionTag: true,
-    },
-  })
-  if (!project) {
-    console.error(`[embed-writer] embedProject: project ${projectId} not found`)
-    return
-  }
-  const content = chunkForProject(project)
-  await upsertEmbedding('project', project.id, content)
-}
-
-export async function embedBuilder(builderName: string): Promise<void> {
-  const builder = await prisma.builder.findUnique({
-    where: { builderName },
-    select: {
-      id: true,
-      builderName: true,
-      brandName: true,
-      totalTrustScore: true,
-      grade: true,
-      deliveryScore: true,
-      reraScore: true,
-      qualityScore: true,
-      financialScore: true,
-      responsivenessScore: true,
-      // contactPhone, contactEmail, commissionRatePct, partnerStatus intentionally excluded
-    },
-  })
-  if (!builder) {
-    console.error(`[embed-writer] embedBuilder: builder "${builderName}" not found`)
-    return
-  }
-  const ctx: BuilderAIContext = {
-    id: builder.id,
-    brandName: builder.brandName,
-    totalTrustScore: builder.totalTrustScore,
-    grade: builder.grade,
-    deliveryScore: builder.deliveryScore,
-    reraScore: builder.reraScore,
-    qualityScore: builder.qualityScore,
-    financialScore: builder.financialScore,
-    responsivenessScore: builder.responsivenessScore,
-  }
-  const content = chunkForBuilder(ctx)
-  await upsertEmbedding('builder', builder.builderName, content)
-}
-
-export async function embedLocationData(id: string): Promise<void> {
-  const row = await prisma.locationData.findUnique({
-    where: { id },
-    select: { id: true, category: true, name: true, microMarket: true, notes: true },
-  })
-  if (!row) {
-    console.error(`[embed-writer] embedLocationData: row ${id} not found`)
-    return
-  }
-  const content = chunkForLocationData(row)
-  await upsertEmbedding('location_data', row.id, content)
-}
-
-export async function embedLocality(localityId: string): Promise<void> {
-  const locality = await prisma.locality.findUnique({
-    where: { id: localityId },
-    select: {
-      id: true,
-      name: true,
-      yoyGrowthPct: true,
-      demandScore: true,
-      avgPricePerSqft: true,
-    },
-  })
-  if (!locality) {
-    console.error(`[embed-writer] embedLocality: locality ${localityId} not found`)
-    return
-  }
-  const content = chunkForLocality(locality)
-  await upsertEmbedding('locality', locality.id, content)
-}
-
-export async function embedInfra(infrastructureId: string): Promise<void> {
-  const infra = await prisma.infrastructure.findUnique({
-    where: { id: infrastructureId },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      priceImpactPct: true,
-      sourceUrl: true,
-    },
-  })
-  if (!infra) {
-    console.error(`[embed-writer] embedInfra: infra ${infrastructureId} not found`)
-    return
-  }
-  const content = chunkForInfra(infra)
-  await upsertEmbedding('infra', infra.id, content)
 }

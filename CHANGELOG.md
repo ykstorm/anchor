@@ -11,12 +11,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - `SPEC.md` title corrected from "rag-starter" to "Anchor"
-- `INTERVIEW_REPORT.md` title and project URL corrected from "rag-starter" to "Anchor"
 - `README.md` "How it works" section renamed "Architecture overview"
 - `README.md` "What's NOT here" section renamed "Known limitations"
 - `README.md` added multi-tenancy limitation entry
 
-## [1.0.1] - 2026-05-11
+## [0.1.0] - 2026-05-11
 
 ### Added
 - Vitest unit tests (15 passing: retriever 10, embed-writer 5)

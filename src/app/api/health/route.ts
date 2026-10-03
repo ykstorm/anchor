@@ -1,9 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
+// Liveness + DB readiness. Probes the database with a trivial SELECT so a broken
+// connection surfaces as 503 rather than a false "ok".
 export async function GET() {
-  // Server liveness check — DB & embedder tested via E2E smoke steps
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    return NextResponse.json({ ok: true, db: true }, { headers: { 'Cache-Control': 'no-store' } })
+  } catch {
+    return NextResponse.json(
+      { ok: false, db: false },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
 }

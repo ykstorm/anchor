@@ -19,12 +19,13 @@ export default function Home() {
           Live · corpus-backed RAG demo
         </div>
         <h1 className="text-5xl font-bold tracking-tight mb-6 leading-tight">
-          Ask anything about<br />
-          <span className="text-emerald-400">projects, builders, localities</span>
+          Retrieval that knows<br />
+          <span className="text-emerald-400">when to say nothing</span>
         </h1>
         <p className="text-lg text-gray-400 mb-10 max-w-2xl mx-auto">
-          Anchor is a production-grade RAG stack built on Next.js 15, Prisma 7, and pgvector.
-          Semantic search across real estate data — retrieval failed means answering refused.
+          Anchor is a retrieval layer on Next.js 16, Prisma 7, and pgvector. It returns
+          grounded chunks with their source when the best cosine match clears a floor, and
+          returns no answer when it does not. No LLM is called.
         </p>
         <div className="flex gap-4 justify-center">
           <Link
@@ -47,10 +48,10 @@ export default function Home() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-6">Try these queries</h2>
         <div className="grid gap-3">
           {[
-            'Which Goyal & Co. projects in Shela are ready to move in?',
-            'Projects in South Bopal under ₹1Cr with metro access',
-            'Builders with A-grade trust score in Ahmedabad',
-            'xkcd 18472 nonsense gibberish', // off-topic → refused
+            'Which Builder A projects in North Ridge are ready to move in?',
+            'Projects in South Hollow with transit access',
+            'Builders with an A-grade trust score',
+            'xkcd 18472 nonsense gibberish', // off-topic → no answer
           ].map((q) => (
             <Link
               key={q}
@@ -66,28 +67,28 @@ export default function Home() {
 
       {/* Features */}
       <section id="features" className="max-w-4xl mx-auto px-8 pb-24">
-        <h2 className="text-2xl font-bold mb-8">What makes Anchor production-ready</h2>
+        <h2 className="text-2xl font-bold mb-8">What Anchor does</h2>
         <div className="grid grid-cols-2 gap-6">
           {[
             {
-              title: '5-layer anti-hallucination',
-              desc: 'Similarity floor, max chunks cap, refused-state flag, raw retrieval output, no LLM confabulation.',
+              title: 'Cosine similarity floor',
+              desc: 'A match below the floor (default 0.30) is treated as too weak, so the response carries no chunks. The floor is never lowered by the query text.',
             },
             {
-              title: 'Sub-50ms retrieval',
-              desc: 'pgvector HNSW index on Embedding table. Cosine similarity with configurable score floor.',
+              title: 'No-answer responses',
+              desc: 'Every /api/query response returns {chunks, refused, floor, maxSimilarity}. Zero chunks means no answer, with the best similarity reported so you can see why.',
             },
             {
-              title: 'Refused-state gateway',
-              desc: 'Every /api/query response returns {chunks, refused}. Zero chunks = refusing to answer.',
+              title: 'pgvector + HNSW index',
+              desc: 'Cosine search over the Embedding table, backed by an HNSW index (vector_cosine_ops).',
             },
             {
-              title: 'Corpus-backed live demo',
-              desc: 'Seed route populates Embedding table from live DB. Playground queries the real vector store.',
+              title: 'Provenance on every chunk',
+              desc: 'Each response includes a deduped sources[] array naming the record behind every chunk.',
             },
             {
-              title: 'Next.js 15 + Prisma 7',
-              desc: 'App Router, Server Components, edge-ready API routes. Prisma with raw SQL for pgvector.',
+              title: 'Next.js 16 + Prisma 7',
+              desc: 'App Router and server routes, Prisma with tagged raw SQL for the pgvector query.',
             },
             {
               title: 'Apache 2.0 licensed',
@@ -120,7 +121,7 @@ pgvector  ←→  Embedding table (1536-dim, HNSW index)
 chunks[]  +  refused boolean
    │
    ▼
-JSON response { chunks, refused }`}</pre>
+JSON response { chunks, refused, sources, floor, maxSimilarity }`}</pre>
       </section>
     </main>
   )

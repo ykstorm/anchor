@@ -1,10 +1,10 @@
 import type { RetrievedChunk } from '@/lib/rag/retriever'
 
 /**
- * Structured provenance entry attached to every grounded /api/query and
- * /api/chat response. One entry per distinct (sourceType, sourceId) pair —
- * deduped across the returned chunks so a single source that produced multiple
- * chunks is reported once.
+ * Structured provenance entry attached to every grounded /api/query response.
+ * One entry per distinct (sourceType, sourceId) pair, deduped across the
+ * returned chunks so a single source that produced multiple chunks is reported
+ * once.
  */
 export type Source = {
   /** Stable identifier of the underlying record (Embedding.sourceId). */
@@ -20,14 +20,14 @@ export type Source = {
 /**
  * Build a deduped, provenance `sources[]` array from retrieved chunks.
  *
- * - Deduped by `${sourceType}:${sourceId}` — the headline differentiator is a
+ * - Deduped by `${sourceType}:${sourceId}`, the headline differentiator is a
  *   clean provenance list, not one entry per chunk.
  * - `similarity` is the max similarity seen for that source (most relevant hit).
  * - `chunkCount` tells the caller how many chunks backed this source.
  * - Sorted by similarity descending so the strongest provenance leads.
  * - An empty `chunks` input yields an empty array (refused responses carry no sources).
  *
- * Pure function — no DB, no network — so it is fully unit-testable.
+ * Pure function, no DB, no network, so it is fully unit-testable.
  */
 export function buildSources(chunks: RetrievedChunk[]): Source[] {
   const byKey = new Map<string, Source>()
