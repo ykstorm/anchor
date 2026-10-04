@@ -96,7 +96,7 @@ sequenceDiagram
 
 1. **Cosine floor instead of top-K only** — Most RAG uses top-K and passes whatever comes back to the LLM. Anchor adds a similarity floor (0.30 default). Below that, the retrieval is too weak to be useful, and we return `refused: true`. This prevents hallucination on weak retrieval signals.
 
-2. **Adaptive K for amenity queries** — Amenity queries ("schools near North Ridge") have more variation in text, so cosine scores are lower even for relevant items. Amenity queries use K=10 + floor=0.20 instead of K=6 + floor=0.30. This is in `retriever.ts:detectAmenity → use case`.
+2. **Wider K for amenity queries.** Amenity queries ("schools near North Ridge") vary more in wording, so relevant rows score lower. `retrieveChunks` raises K to at least 10 for them (`retriever.ts`, `effectiveK`) and reranks location rows that name the detected amenity (`rerankAmenity`). The 0.30 floor is the same for every query; only K changes.
 
 3. **Idempotent upsert on (entityType, entityId)** — The backfill script can be re-run safely. Every embed function uses Prisma `upsert`, not `create`. Unique constraint prevents duplicates. Re-running produces the same result as running once.
 
