@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # the publish job below only runs for a v* tag, so tag pushes must start the workflow
+    tags: ['v*']
   pull_request:
     branches: [main]
 
