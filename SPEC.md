@@ -40,19 +40,15 @@ embed-writer 5, retriever-floor 4.
 
 ## Architecture
 
-```mermaid
-graph LR
-    Query --> Embed[Embed with\ntext-embedding-3-small]
-    Embed --> pgv[pgvector\n<=> cosine search]
-    pgv --> Filter[Best score ≥ 0.30\n(k=6 or k=10)]
-    Filter --> Return[Return chunks\nor refused]
+Read path: the query is embedded with `text-embedding-3-small`, pgvector ranks
+the stored chunks by `<=>` cosine distance and returns the top K (6, or 10 for
+an amenity query), every candidate scoring below 0.30 is dropped, and the
+caller gets the remaining chunks or a refusal.
 
-    subgraph "Write path"
-        Entities --> Chunk[chunkForProject\nchunkForBuilder\nchunkForLocality...]
-        Chunk --> OpenAI[OpenAI\nembed-3-small]
-        OpenAI --> Upsert[Prisma upsert\nEmbedding table]
-    end
-```
+Write path: each entity row goes through its chunker (`chunkForProject`,
+`chunkForBuilder`, `chunkForLocality` and the rest), is embedded with the same
+OpenAI model, and is upserted into the `Embedding` table with
+`INSERT ... ON CONFLICT`.
 
 **Retrieval pipeline** (`retrieveChunks(query, k=6)`):
 1. Sanitize and embed the query with `text-embedding-3-small`
