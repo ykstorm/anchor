@@ -2,84 +2,37 @@
 
 > Detailed architecture: [docs/architecture.md](docs/architecture.md)
 
-## Component diagram
+## Components
 
-```mermaid
-graph TB
-    subgraph Client
-        UI[app/playground<br/>Query UI]
-    end
-
-    subgraph "Anchor Service"
-        API[/api/query<br/>POST]
-        Intent[Intent classifier<br/>detectAmenity]
-        Retriever[Retriever<br/>retrieveChunks]
-        Embedder[OpenAI<br/>text-embedding-3-small]
-    end
-
-    subgraph Storage
-        PG[(Postgres<br/>+ pgvector)]
-        Emb[(Embeddings)]
-    end
-
-    UI --> API
-    API --> Intent
-    Intent --> Retriever
-    Retriever --> Embedder
-    Embedder --> PG
-    PG --> Retriever
-    Retriever --> API
-    API --> UI
-
-    classDef storage fill:#fef3c7,stroke:#ca8a04
-    classDef defense fill:#fee2e2,stroke:#dc2626
-    classDef happy fill:#dcfce7,stroke:#16a34a
-    class PG,Emb storage
-    class Retriever defense
-    class Embedder,Intent happy
-```
+The playground (`app/playground`) posts each query to `POST /api/query`. The
+route calls `retrieveChunks`, which runs the intent classifier
+(`detectAmenityCategories`), embeds the query with OpenAI
+`text-embedding-3-small` and searches the stored embeddings in Postgres with
+pgvector. The retriever hands the matching chunks back to the route, which
+returns them to the UI.
 
 ## Request sequence — grounded query
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as /api/query
-    participant Intent as Intent classifier
-    participant Retriever as retrieveChunks
-    participant OpenAI as text-embedding-3-small
-    participant PG as pgvector
-
-    Client->>API: POST {q: "price of North Court"}
-    API->>Intent: detectAmenity("price of North Court")
-    Intent-->>API: not amenity
-    API->>Retriever: retrieveChunks(q, k=6, simFloor=0.30)
-    Retriever->>OpenAI: embed(q)
-    OpenAI-->>Retriever: embedding[1536]
-    Retriever->>PG: SELECT embedding <=> $1 ORDER BY cosine LIMIT 6
-    PG-->>Retriever: [{chunk, score: 0.71}, ...]
-    Retriever->>Retriever: filter(score >= 0.30)
-    Retriever-->>API: {chunks: [...], refused: false}
-    API-->>Client: 200 {chunks, refused: false, sources}
-```
+1. The client POSTs `{"q": "price of North Court"}` to `/api/query`.
+2. The route calls `retrieveChunks(q, 6)`, whose floor defaults to 0.30.
+3. `detectAmenityCategories` finds no amenity in the query, so K stays 6.
+4. The retriever embeds the sanitized query with `text-embedding-3-small` and
+   gets a 1536-dimension vector.
+5. pgvector returns the 6 rows nearest by cosine distance (`<=>`), each with
+   its similarity, for example 0.71.
+6. Rows below 0.30 are dropped, and the retriever returns
+   `{ chunks, floor, maxSimilarity }`.
+7. The route sets `refused: false` because chunks remain, and answers 200 with
+   the chunks, `refused`, `sources`, `floor` and `maxSimilarity`.
 
 ## Request sequence — refused query
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as /api/query
-    participant Retriever as retrieveChunks
-    participant PG as pgvector
-
-    Client->>API: POST {q: "what is xkcd 18472"}
-    API->>Retriever: retrieveChunks(q, k=6, simFloor=0.30)
-    Retriever->>PG: SELECT embedding <=> $1 ORDER BY cosine LIMIT 6
-    PG-->>Retriever: [{chunk, score: 0.08}, ...]
-    Retriever->>Retriever: all scores < 0.30 → return []
-    Retriever-->>API: {chunks: [], refused: true}
-    API-->>Client: 200 {chunks: [], refused: true}
-```
+1. The client POSTs `{"q": "what is xkcd 18472"}` to `/api/query`.
+2. The route calls `retrieveChunks(q, 6)`, which embeds the query and asks
+   pgvector for the 6 nearest rows.
+3. The best of them scores 0.08, so every row is below 0.30 and none is kept.
+4. The retriever returns no chunks, with `maxSimilarity` 0.08.
+5. The route answers 200 with `chunks: []` and `refused: true`.
 
 ## Module map
 

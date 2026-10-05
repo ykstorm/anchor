@@ -10,95 +10,39 @@ and the miss — and shows where each check earns its keep.
 
 ## 1. Component map
 
-```mermaid
-graph TB
-    subgraph Client
-        UI[Next.js UI<br/>app/playground]
-    end
+Read path: the Next.js playground (`app/playground`) posts to the
+`/api/query` POST handler, which calls the retriever (`retriever.ts`). The
+retriever runs the intent classifier, embeds the query with OpenAI
+`text-embedding-3-small` and searches Postgres with pgvector. The handler adds
+provenance from `sources.ts` and returns the result to the UI.
 
-    subgraph "Anchor Service"
-        API[/api/query<br/>POST handler/]
-        Intent[Intent classifier]
-        Retriever[Retriever<br/>retriever.ts]
-        Embedder[Embedder<br/>OpenAI text-embedding-3-small]
-        Provenance[Provenance<br/>sources.ts]
-        Health[/api/health/]
-    end
+Write path: `npm run seed` (`prisma/seed.ts`) and `npm run embed:backfill`
+(`scripts/embed-backfill.ts`) run each row through a domain chunker
+(`chunkForProject` and the others), embed the text with the same model and
+store it in the embedding table in Postgres.
 
-    subgraph Storage
-        PG[(Postgres + pgvector)]
-        Chunks[(Embedding chunks)]
-    end
-
-    subgraph "Write path"
-        Seed[seed script<br/>scripts/embed-backfill.ts]
-        Chunker[Domain chunker<br/>chunkForProject etc.]
-    end
-
-    UI --> API
-    API --> Intent
-    Intent --> Retriever
-    Retriever --> Embedder
-    Embedder --> PG
-    PG --> Retriever
-    Retriever --> Provenance
-    Provenance --> API
-    API --> UI
-
-    Seed --> Chunker
-    Chunker --> Embedder
-    Embedder --> PG
-
-    Health --> PG
-
-    classDef storage fill:#fef3c7,stroke:#ca8a04
-    classDef defense fill:#fee2e2,stroke:#dc2626
-    classDef happy fill:#dcfce7,stroke:#16a34a
-
-    class PG,Chunks storage
-    class Retriever,Provenance defense
-    class Embedder,Chunker happy
-```
+`/api/health` checks the database with `SELECT 1`.
 
 ---
 
 ## 2. Read path — query sequence
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as User
-    participant API as POST /api/query
-    participant I as Intent classifier
-    participant R as Retriever
-    participant E as Embedder
-    participant V as pgvector
-    participant P as Provenance
-    participant L as LLM (caller)
+1. The user's query, `{"q": "schools near North Ridge"}`, reaches
+   `POST /api/query`, which calls `retrieveChunks(q, 6)`.
+2. Inside the retriever the intent classifier (`detectAmenityCategories`)
+   finds an amenity, so K becomes 10. The floor stays 0.30.
+3. The retriever embeds `sanitize(q)` under the client's 8000ms timeout and
+   gets a 1536-dimension vector.
+4. pgvector runs `ORDER BY embedding <=> q_vec LIMIT 10` under the 5000ms
+   budget and returns 10 candidates with scores.
+5. Candidates below 0.30 are dropped, and location rows that name the amenity
+   are ranked higher.
+6. The route adds `sources` from `buildSources` (sourceType, sourceId,
+   similarity and chunkCount per source) and answers 200 with the chunks,
+   `refused`, `floor` and `maxSimilarity`.
 
-    U->>API: {"q": "schools near North Ridge"}
-    API->>I: classify(q)
-    I-->>API: intent=amenity → K=10 (floor unchanged: 0.30)
-    API->>R: retrieve(q, K)
-    R->>E: embed(sanitize(q))  [8000ms client timeout]
-    E-->>R: vector(1536)
-    R->>V: SELECT ... ORDER BY embedding <=> q_vec LIMIT 10  [5000ms budget]
-    V-->>R: 10 candidates with scores
-    R->>R: filter where score ≥ 0.30
-    Note over R: ALL below 0.30?<br/>return [] (refused, with maxSimilarity)
-
-    alt chunks found
-        R-->>API: {chunks[], floor, maxSimilarity}
-        API->>P: buildSources(chunks)
-        P-->>API: sources[]  (sourceType, sourceId, similarity, chunkCount)
-        API-->>L: prompt + provenance-tagged context
-        L-->>U: answer + sources
-    else nothing crossed the floor
-        R-->>API: {chunks: [], floor, maxSimilarity}
-        API-->>L: refused: true
-        L-->>U: "I don't have a source for that."
-    end
-```
+       some chunks left: refused is false; the caller's LLM answers, citing sources
+       none left: refused is true; the caller replies "I don't have a source for that."
 
 **Why the no-answer path matters.** When `chunks: []` and `refused: true`, the
 caller must not synthesize from priors — it should fall back (ask a clarifying
@@ -111,28 +55,17 @@ returns 503, so the caller never mistakes a broken dependency for "no answer".
 
 ## 3. Write path — document ingestion
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Op as Operator
-    participant Seed as seed script
-    participant Chunk as Domain chunker
-    participant E as Embedder
-    participant V as pgvector
-    participant L as Embedding table
-
-    Op->>Seed: npm run seed
-    Seed->>Seed: read rows from the seeded tables
-    loop per entity
-        Seed->>Chunk: chunkFor<Entity>(row)
-        Chunk-->>Seed: sanitized chunk text
-        Seed->>E: embed(chunkText)
-        E-->>Seed: vector(1536)
-        Seed->>L: UPSERT (sourceType, sourceId, content, vector)
-        Note over L: idempotent on (sourceType, sourceId)
-    end
-    Seed-->>Op: report (embedded N rows)
-```
+1. The operator runs `npm run seed` (`prisma/seed.ts`).
+2. The script seeds the demo rows, then reads them back from the seeded tables.
+3. For each row, the entity's chunker (`chunkFor<Entity>(row)`) builds the
+   chunk text.
+4. `upsertEmbedding` sanitizes that text and embeds it as a 1536-dimension
+   vector.
+5. It writes sourceType, sourceId, content, token count and vector to the
+   embedding table with
+   `INSERT ... ON CONFLICT ("sourceType", "sourceId") DO UPDATE`, so a re-run
+   updates rows instead of duplicating them.
+6. The script reports how many rows it embedded.
 
 ---
 
@@ -176,18 +109,9 @@ on-topic location rows, but a weak match stays a refusal.
 
 ## 7. Deployment topology (production)
 
-```mermaid
-graph LR
-    User[User] -->|HTTPS| App[Anchor Next.js<br/>Vercel serverless]
-    App -->|pooled| Neon[(Neon Postgres<br/>pgvector)]
-    App --> OpenAI[OpenAI embeddings API]
-
-    classDef compute fill:#dcfce7,stroke:#16a34a
-    classDef data fill:#fef3c7,stroke:#ca8a04
-
-    class App compute
-    class Neon,OpenAI data
-```
+Users reach the Anchor Next.js app, running as Vercel serverless functions,
+over HTTPS. The app connects to Neon Postgres (with pgvector) through the
+pooled connection string and calls the OpenAI embeddings API.
 
 - **Compute:** Vercel serverless functions (Node runtime).
 - **Database:** Neon Postgres (free tier supports pgvector, with branching for preview deploys).
