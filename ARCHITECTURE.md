@@ -51,7 +51,7 @@ returns them to the UI.
 
 2. **Wider K for amenity queries.** Amenity queries ("schools near North Ridge") vary more in wording, so relevant rows score lower. `retrieveChunks` raises K to at least 10 for them (`retriever.ts`, `effectiveK`) and reranks location rows that name the detected amenity (`rerankAmenity`). The 0.30 floor is the same for every query; only K changes.
 
-3. **Idempotent upsert on (entityType, entityId)** — The backfill script can be re-run safely. Every embed function uses Prisma `upsert`, not `create`. Unique constraint prevents duplicates. Re-running produces the same result as running once.
+3. **Idempotent write on (sourceType, sourceId).** The backfill script can be re-run safely: `upsertEmbedding` in `src/lib/rag/embed-writer.ts` runs a raw `INSERT ... ON CONFLICT ("sourceType", "sourceId")`, and the `@@unique` constraint in `prisma/schema.prisma` keeps one embedding per pair, so re-running produces the same rows as running once.
 
 ## Retrieval timeout
 
