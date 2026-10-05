@@ -52,7 +52,7 @@ anchor/
 ├── prisma/                    # schema + migrations (incl. CREATE EXTENSION vector + HNSW index) + seed.ts
 ├── scripts/                   # embed-backfill
 ├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, query-route tests
-├── docs/architecture.md       # system architecture + sequence diagrams
+├── docs/architecture.md       # system architecture and request flows
 ├── docs/CLAIM_AUDIT.md        # every public claim → file:line that backs it
 ├── docker-compose.yml         # Postgres + pgvector + app
 ├── Dockerfile                 # multi-stage production image
