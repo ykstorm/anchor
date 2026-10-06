@@ -141,7 +141,7 @@ The numbers come from [`.github/workflows/benchmark.yml`](.github/workflows/benc
 | Deploy | Vercel |
 | License | Apache 2.0 |
 
-It is a small, single-service codebase. It uses no framework beyond Next.js and no managed service. Exact versions are in [package.json](package.json).
+It is a small, single-service codebase with no framework beyond Next.js. It does depend on hosted services: every seeded row and every query not already in the in-memory cache calls the OpenAI embeddings API, and the live demo runs on Vercel with its Postgres on Neon. Locally, Docker replaces Vercel and Neon, but the OpenAI key is still needed. Exact versions are in [package.json](package.json).
 
 ## Project layout
 
@@ -165,7 +165,7 @@ anchor/
 
 - No LLM generation. Anchor is retrieval-only. Wire it to your model's system prompt yourself.
 - Small demo corpus. It holds 16 projects of synthetic data, not 100k+ documents.
-- Single-stage retrieval. There is no re-ranking and no hybrid retrieval (BM25 keyword scoring combined with vector search).
+- Simple ranking. Results come back in cosine-similarity order. The only re-ranking is a fixed boost that moves matching location rows up for amenity queries (`rerankAmenity` in `src/lib/rag/retriever.ts`). There is no model-based re-ranking and no hybrid retrieval (BM25 keyword scoring combined with vector search).
 
 ## Security and credentials
 
