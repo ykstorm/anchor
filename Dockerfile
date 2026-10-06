@@ -1,6 +1,8 @@
 # =====================================================================
-# Anchor — multi-stage Dockerfile
-# Builds a production Next.js standalone image, ~120 MB final.
+# Anchor multi-stage Dockerfile
+# Builds a production Next.js standalone image. Its size has not been measured;
+# the runner stage copies the builder's full node_modules, dev dependencies
+# included, so it is larger than the standalone server alone.
 # =====================================================================
 
 # ---------- Stage 1: deps ----------
