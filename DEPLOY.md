@@ -2,20 +2,20 @@
 
 Anchor can be deployed three ways.
 
-1. Local dev: `docker compose up`, 60 seconds.
-2. Vercel + Neon: the production setup, on the free tier, at anchor.example.com. Vercel hosts the app. Neon hosts the Postgres database.
+1. Local dev: `docker compose up`.
+2. Vercel + Neon: the production setup. Vercel hosts the app. Neon hosts the Postgres database. The examples use `anchor.example.com` as a placeholder for your own domain.
 3. Self-hosted: on your own Kubernetes, Fly.io, Render, or any Postgres with pgvector. pgvector is the Postgres extension that stores embeddings and searches them by distance. An embedding is a list of numbers that represents the meaning of a text.
 
 ---
 
-## 1. Local dev (60 seconds)
+## 1. Local dev
 
 ```bash
 git clone https://github.com/ykstorm/anchor && cd anchor
 cp .env.example .env
 # paste your OPENAI_API_KEY into .env
 docker compose up -d
-docker compose exec app npm run seed   # ~30s, seeds the demo corpus (60 rows)
+docker compose exec app npm run seed   # seeds the demo corpus (60 rows)
 open http://localhost:3000/playground
 ```
 
@@ -25,15 +25,14 @@ To stop the stack, run `docker compose down`. To stop it and wipe the data, run 
 
 ## 2. Vercel + Neon (production)
 
-### One-time setup (~10 minutes)
+### One-time setup
 
 First, set up Neon Postgres.
 
-1. Sign up at [neon.tech](https://neon.tech). The free tier needs no credit card.
+1. Sign up at [neon.tech](https://neon.tech).
 2. Create a project named `anchor-prod`.
-3. Open Settings, then Extensions, and enable `vector`. It takes one click.
+3. Open Settings, then Extensions, and enable `vector`.
 4. Copy the connection string from the dashboard. This is `DATABASE_URL`. It goes through a connection pooler, which shares a small set of database connections across many requests.
-5. Copy the direct (non-pooled) connection string. This is `DIRECT_URL`. It connects straight to the database.
 
 Then set up Vercel.
 
@@ -42,12 +41,12 @@ Then set up Vercel.
 3. Set these environment variables:
    ```
    DATABASE_URL      = <neon pooled connection string>
-   DIRECT_URL        = <neon direct connection string>
    OPENAI_API_KEY    = sk-...
-   NEXT_PUBLIC_DEMO_MODE = true
    ```
 4. Override the build command with `npx prisma generate && npx prisma migrate deploy && next build`.
 5. Deploy.
+
+`docker-compose.yml` also sets `DIRECT_URL` and `NEXT_PUBLIC_DEMO_MODE`. Nothing in the code reads either one, so you do not need to set them on Vercel.
 
 To use a custom domain:
 
@@ -73,6 +72,8 @@ Two notes on latency.
 Fly.io and Render are hosting services that can run a Docker image.
 
 ### Fly.io
+
+Untested: these steps have not been run, and the repo has no `fly.toml`.
 
 ```bash
 fly launch --copy-config --image ghcr.io/ykstorm/anchor:latest
@@ -149,16 +150,9 @@ The manifest above is a minimal starting point. There is no bundled Helm chart. 
 
 ## Cost estimates
 
-Estimated cost per month for each mode.
+The main running cost is the OpenAI embedding calls. Compute and database costs depend on the plan you pick with Vercel, Neon or your own host. Check each vendor's pricing page for current prices.
 
-| Mode | Compute | DB | OpenAI | Monthly |
-|---|---|---|---|---|
-| Local dev | $0 | $0 | ~$0.50 (seeding) | <$1 |
-| Vercel Hobby + Neon Free | $0 | $0 | ~$2-5 (light traffic) | ~$5 |
-| Vercel Pro + Neon Scale | $20 | $19 | ~$10-50 | $50-90 |
-| Self-hosted (k8s, 2 pods) | depends | depends | ~$10-50 | depends |
-
-OpenAI charges $0.02 per million tokens for embeddings. A token is a small piece of text, about a short word. A typical query is about 50 tokens, so 1M queries cost $1.
+The backfill script, `scripts/embed-backfill.ts`, estimates embedding cost at $0.02 per million tokens for `text-embedding-3-small`. A token is a small piece of text, about a short word. Assume a query is about 50 tokens. Then 1M queries are 50M tokens, which cost $1 at that price.
 
 ---
 
@@ -186,12 +180,14 @@ curl -fsS -X POST $HOST/api/query \
 # expected: chunks: [], refused: true, sources: []
 ```
 
-If any check fails, look at the Vercel logs with `vercel logs`. These are the common problems.
+If any check fails, look at the Vercel logs with `vercel logs`. These are the responses and log lines the code produces.
 
-- If you see `vector extension not enabled`, enable it in the Neon dashboard and run `CREATE EXTENSION vector;`.
-- If you see `OPENAI_API_KEY missing`, add the key again in the Vercel environment variables and redeploy.
-- If you see `pool exhausted`, use the pooled connection string, not the direct one.
-- If requests time out, check that the Neon region matches the Vercel region.
+- `/api/health` returns 503 with `{"ok":false,"db":false}` when its `SELECT 1` against the database fails (`src/app/api/health/route.ts`). Check `DATABASE_URL` and that the database is reachable.
+- `/api/query` returns 503 with `{"error":"Retrieval temporarily unavailable"}` and logs `[query] retrieval failed:` followed by a reason (`src/app/api/query/route.ts`). The reason is one of the three below.
+  - `embedding failed` means the call to OpenAI failed. Check that `OPENAI_API_KEY` is set in the Vercel environment variables, then redeploy.
+  - `db query timed out` means the vector search ran past its 5 second limit. Check that the Neon region matches the Vercel region.
+  - `db query failed` means the database query itself failed. Check `DATABASE_URL` and that the migrations were applied.
+- `npm run seed` prints `[seed] OPENAI_API_KEY not set, skipping embedding step.` when the key is missing (`prisma/seed.ts`). It still seeds the structured rows. Set the key and run it again.
 
 ---
 

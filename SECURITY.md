@@ -4,21 +4,23 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 1.x     | Yes       |
+| 0.1.x   | Yes       |
 
 ## Reporting a Vulnerability
 
 If you find a security vulnerability, please report it in one of two ways.
 
 1. Use GitHub Security Advisories, a report form on GitHub: https://github.com/ykstorm/anchor/security/advisories/new
-2. Send an email with "SECURITY" in the subject line.
+2. Send an email to raolakshyaraj@gmail.com with "SECURITY" in the subject line.
 
 Please do not disclose security issues publicly until a fix is available.
 
 ## Response Timeline
 
-- We acknowledge a report within 48 hours.
-- We give an initial assessment within 7 days.
+These times are goals, not guarantees.
+
+- We aim to acknowledge a report within 48 hours.
+- We aim to give an initial assessment within 7 days.
 - The time to a fix varies with severity.
 
 For critical vulnerabilities, please consider encrypted communication.

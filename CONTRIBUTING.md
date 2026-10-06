@@ -44,7 +44,7 @@ The retrieval pipeline embeds the query, which turns it into an embedding, a lis
 ### Running tests
 
 ```bash
-npm test              # run once with coverage
+npm test              # runs vitest once (CI adds coverage)
 npm run test:watch   # watch mode for TDD
 ```
 

@@ -4,7 +4,7 @@
 
 - [x] Cosine floor, 0.30 for every query. Cosine similarity is a score for how close two embeddings are in meaning. The floor is the minimum score a chunk needs to be returned.
 - [x] Adaptive K. K is the number of chunks fetched: 6 normally, and 10 for amenity queries (questions about nearby facilities).
-- [x] Idempotent upsert by (entityType, entityId). An upsert inserts a row, or updates it if it already exists. Idempotent means doing it twice gives the same result.
+- [x] Idempotent upsert by (sourceType, sourceId). An upsert inserts a row, or updates it if it already exists. Idempotent means doing it twice gives the same result.
 - [x] pgvector retrieval pipeline. pgvector is the Postgres extension that stores embeddings and searches them by distance.
 - [x] 50 unit tests
 - [x] Docker Compose (Postgres + pgvector + app)
