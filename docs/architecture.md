@@ -130,7 +130,11 @@ over HTTPS. The app connects to Neon Postgres (with pgvector) through the
 pooled connection string and calls the OpenAI embeddings API.
 
 - Compute: Vercel serverless functions (Node runtime).
-- Database: Neon Postgres (free tier supports pgvector, with branching for preview deploys).
+- Database: Neon Postgres with pgvector. Preview deploys use the production
+  database: one `DATABASE_URL` is set for both the Production and Preview
+  environments in Vercel, so every preview build runs `prisma migrate deploy`
+  against production. DEPLOY.md, Preview deployments, says how to give previews
+  their own database.
 - Embedder: OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on load).
 - Observability: Vercel Analytics for page latency (query strings stripped before send).
 

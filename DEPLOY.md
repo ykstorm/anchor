@@ -59,6 +59,10 @@ Then set up Vercel.
 
 `docker-compose.yml` also sets `DIRECT_URL` and `NEXT_PUBLIC_DEMO_MODE`. Nothing in the code reads either one, so you do not need to set them on Vercel.
 
+### Preview deployments
+
+Vercel runs the same build command for every preview, so a preview build applies its branch's migrations to whatever `DATABASE_URL` it gets. When one `DATABASE_URL` covers both Production and Preview, as it does for the live demo today, previews read and write the production database. To give previews their own database, either install Neon's Vercel integration and let it create a Neon branch for each preview deployment, which sets that preview's `DATABASE_URL` for you, or create a separate Neon branch or database and set its connection string as `DATABASE_URL` for the Preview environment only.
+
 To use a custom domain:
 
 1. In Vercel, open Project, then Settings, then Domains, and add `anchor.example.com`.
