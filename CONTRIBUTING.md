@@ -1,6 +1,6 @@
 # Contributing to Anchor
 
-Thank you for your interest in contributing!
+Thank you for your interest in contributing.
 
 ## Quick start
 
@@ -21,7 +21,7 @@ npm run dev
 ```
 anchor/
 ├── src/
-│   ├── app/api/            # API routes — add new endpoints here
+│   ├── app/api/            # API routes: add new endpoints here
 │   └── lib/rag/            # Core retrieval and embed logic
 │       ├── retriever.ts    # Retrieval pipeline (embed → pgvector → floor)
 │       └── embed-writer.ts # Embed pipeline (chunk → upsert)
@@ -30,14 +30,16 @@ anchor/
 └── docs/architecture.md   # System design reference
 ```
 
+The retrieval pipeline embeds the query, which turns it into an embedding, a list of numbers that represents its meaning. It then searches pgvector, the Postgres extension that stores embeddings and searches them by distance. Results below the cosine floor, the minimum similarity score a chunk needs, are dropped. The embed pipeline splits source data into chunks, embeds each chunk and upserts it. An upsert inserts a row, or updates it if it already exists.
+
 ## Development workflow
 
 ### Code changes
 
-1. **New API route** → add to `src/app/api/<name>/route.ts`
-2. **New RAG logic** → add to `src/lib/rag/`
-3. **New script** → add to `scripts/`
-4. Write or update tests in `tests/`
+1. For a new API route, add `src/app/api/<name>/route.ts`.
+2. For new retrieval or embedding logic, add it to `src/lib/rag/`.
+3. For a new script, add it to `scripts/`.
+4. Write or update tests in `tests/`.
 
 ### Running tests
 
@@ -48,11 +50,15 @@ npm run test:watch   # watch mode for TDD
 
 ### Typecheck
 
+This checks the TypeScript types without writing any output files.
+
 ```bash
 npx tsc --noEmit
 ```
 
 ### Lint
+
+Lint runs ESLint, which flags style problems and likely bugs.
 
 ```bash
 npm run lint
@@ -86,7 +92,7 @@ curl http://localhost:3000/api/health
 
 ## Commit convention
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/):
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). Each commit message starts with a type such as `feat` or `fix`, then a colon and a short description.
 
 ```
 feat: add cosine floor metric to health endpoint
@@ -107,9 +113,9 @@ refactor: extract embedder into separate module
 
 ## Opening an issue
 
-- Bug reports: include `npm test` output, `npx tsc --noEmit` output, and the query that triggered the issue
-- Feature requests: describe the problem you're solving, not just the solution
-- Questions: check `docs/architecture.md` first
+- For a bug report, include the `npm test` output, the `npx tsc --noEmit` output, and the query that triggered the issue.
+- For a feature request, describe the problem you are solving, not just the solution.
+- For a question, check `docs/architecture.md` first.
 
 ## License
 

@@ -1,10 +1,10 @@
 # Deploying Anchor
 
-Three deploy modes:
+Anchor can be deployed three ways.
 
-1. **Local dev** — `docker compose up`, 60 seconds
-2. **Vercel + Neon** — production, free tier, anchor.example.com
-3. **Self-hosted** — your Kubernetes, Fly.io, Render, any Postgres-with-pgvector
+1. Local dev: `docker compose up`, 60 seconds.
+2. Vercel + Neon: the production setup, on the free tier, at anchor.example.com. Vercel hosts the app. Neon hosts the Postgres database.
+3. Self-hosted: on your own Kubernetes, Fly.io, Render, or any Postgres with pgvector. pgvector is the Postgres extension that stores embeddings and searches them by distance. An embedding is a list of numbers that represents the meaning of a text.
 
 ---
 
@@ -19,8 +19,7 @@ docker compose exec app npm run seed   # ~30s, seeds the demo corpus (60 rows)
 open http://localhost:3000/playground
 ```
 
-Stop: `docker compose down`
-Wipe data: `docker compose down -v`
+To stop the stack, run `docker compose down`. To stop it and wipe the data, run `docker compose down -v`.
 
 ---
 
@@ -28,46 +27,50 @@ Wipe data: `docker compose down -v`
 
 ### One-time setup (~10 minutes)
 
-**Neon Postgres:**
-1. Sign up at [neon.tech](https://neon.tech) (free tier, no credit card)
-2. Create project `anchor-prod`
-3. Settings → Extensions → enable `vector` (one click)
-4. Copy connection string from dashboard — this is `DATABASE_URL`
-5. Copy the direct (non-pooled) connection string — this is `DIRECT_URL`
+First, set up Neon Postgres.
 
-**Vercel:**
-1. Connect your fork of `github.com/ykstorm/anchor` to Vercel
-2. Framework preset: Next.js (auto-detected)
-3. Environment variables:
+1. Sign up at [neon.tech](https://neon.tech). The free tier needs no credit card.
+2. Create a project named `anchor-prod`.
+3. Open Settings, then Extensions, and enable `vector`. It takes one click.
+4. Copy the connection string from the dashboard. This is `DATABASE_URL`. It goes through a connection pooler, which shares a small set of database connections across many requests.
+5. Copy the direct (non-pooled) connection string. This is `DIRECT_URL`. It connects straight to the database.
+
+Then set up Vercel.
+
+1. Connect your fork of `github.com/ykstorm/anchor` to Vercel.
+2. Set the framework preset to Next.js. Vercel detects it automatically.
+3. Set these environment variables:
    ```
    DATABASE_URL      = <neon pooled connection string>
    DIRECT_URL        = <neon direct connection string>
    OPENAI_API_KEY    = sk-...
    NEXT_PUBLIC_DEMO_MODE = true
    ```
-4. Build command override: `npx prisma generate && npx prisma migrate deploy && next build`
+4. Override the build command with `npx prisma generate && npx prisma migrate deploy && next build`.
 5. Deploy.
 
-**Custom domain:**
-1. Vercel → Project → Settings → Domains → add `anchor.example.com`
-2. Add CNAME `anchor` → `cname.vercel-dns.com` in your DNS
+To use a custom domain:
 
-**Seed the demo corpus:**
+1. In Vercel, open Project, then Settings, then Domains, and add `anchor.example.com`.
+2. In your DNS, add a CNAME record named `anchor` that points to `cname.vercel-dns.com`. A CNAME is a DNS record that makes one name an alias for another.
+
+To seed the demo corpus, run this locally against the production database:
+
 ```bash
 # locally, against the prod DB
 DATABASE_URL='<neon prod url>' npm run seed
 ```
 
-**Latency notes:**
-- The DB-side vector search is ~1-3ms on the benchmark table (see the README
-  performance table and `bench/latency-scale.mjs`).
-- End-to-end latency is dominated by the OpenAI embedding API call, which is not
-  benchmarked here and varies with API load. Vercel cold starts add their own
-  one-off cost.
+Two notes on latency.
+
+- The DB-side vector search takes about 1 to 3 ms on the benchmark table. See the performance table in the README and `bench/latency-scale.mjs`.
+- End-to-end latency is dominated by the OpenAI embedding API call. That call is not benchmarked here, and it varies with API load. A Vercel cold start adds its own one-off cost. A cold start is the extra time it takes to start a function that has been idle.
 
 ---
 
 ## 3. Self-hosted
+
+Fly.io and Render are hosting services that can run a Docker image.
 
 ### Fly.io
 
@@ -77,7 +80,7 @@ fly secrets set OPENAI_API_KEY=sk-... DATABASE_URL=postgresql://...
 fly deploy
 ```
 
-A managed Postgres-with-pgvector is available via Fly: `fly postgres create --vector`.
+Fly can also run a managed Postgres with pgvector: `fly postgres create --vector`.
 
 ### Render
 
@@ -100,13 +103,15 @@ databases:
   - name: anchor-postgres
     plan: starter
     postgresMajorVersion: 16
-    # Note: install pgvector via Render dashboard → Database → Extensions
+    # install pgvector via Render dashboard → Database → Extensions
 ```
 
 ### Kubernetes
 
+Kubernetes runs containers across a cluster of machines.
+
 ```yaml
-# k8s/deployment.yaml — minimal
+# k8s/deployment.yaml (minimal)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -136,11 +141,15 @@ spec:
             limits:   { cpu: 500m, memory: 512Mi }
 ```
 
-The manifest above is a minimal starting point; there is no bundled Helm chart.
+Both probes call `/api/health`. Kubernetes restarts a pod that fails the liveness probe. It stops sending traffic to a pod that fails the readiness probe.
+
+The manifest above is a minimal starting point. There is no bundled Helm chart. Helm is a package manager for Kubernetes.
 
 ---
 
 ## Cost estimates
+
+Estimated cost per month for each mode.
 
 | Mode | Compute | DB | OpenAI | Monthly |
 |---|---|---|---|---|
@@ -149,11 +158,13 @@ The manifest above is a minimal starting point; there is no bundled Helm chart.
 | Vercel Pro + Neon Scale | $20 | $19 | ~$10-50 | $50-90 |
 | Self-hosted (k8s, 2 pods) | depends | depends | ~$10-50 | depends |
 
-OpenAI embedding cost: $0.02 per million tokens. A typical query embeds ~50 tokens. 1M queries = $1.
+OpenAI charges $0.02 per million tokens for embeddings. A token is a small piece of text, about a short word. A typical query is about 50 tokens, so 1M queries cost $1.
 
 ---
 
 ## Smoke test after deploy
+
+A smoke test is a quick check that the basics work. After a deploy, run these three checks.
 
 ```bash
 HOST=https://anchor.example.com   # or your URL
@@ -162,7 +173,7 @@ HOST=https://anchor.example.com   # or your URL
 curl -fsS $HOST/api/health
 # expected: {"ok":true,"db":true}
 
-# 2. Known-good query (chunks should return) — matches the seeded corpus
+# 2. Known-good query (chunks should return), matches the seeded corpus
 curl -fsS -X POST $HOST/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"Which Builder A projects in North Ridge are ready to move in?"}'
@@ -175,16 +186,17 @@ curl -fsS -X POST $HOST/api/query \
 # expected: chunks: [], refused: true, sources: []
 ```
 
-If any smoke test fails, check Vercel logs (`vercel logs`). Common issues:
+If any check fails, look at the Vercel logs with `vercel logs`. These are the common problems.
 
-- **`vector extension not enabled`** → enable it in Neon dashboard, run `CREATE EXTENSION vector;`
-- **`OPENAI_API_KEY missing`** → re-add in Vercel env vars, redeploy
-- **`pool exhausted`** → use pooled connection string, not direct
-- **timeouts** → check Neon region matches Vercel region
+- If you see `vector extension not enabled`, enable it in the Neon dashboard and run `CREATE EXTENSION vector;`.
+- If you see `OPENAI_API_KEY missing`, add the key again in the Vercel environment variables and redeploy.
+- If you see `pool exhausted`, use the pooled connection string, not the direct one.
+- If requests time out, check that the Neon region matches the Vercel region.
 
 ---
 
 ## Rollback
 
-Vercel → Deployments → previous deploy → Promote to Production.
-Database migrations: Anchor uses `prisma migrate deploy` (forward-only). To rollback, restore Neon branch from a prior point (Neon → Branches → Time travel).
+To roll back the app, open Deployments in Vercel, pick a previous deploy, and choose Promote to Production.
+
+Anchor applies database migrations with `prisma migrate deploy`, which only moves forward. A migration is a script that changes the database structure. To roll the database back, restore a Neon branch from an earlier point in time. In Neon, open Branches, then Time travel.
