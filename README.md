@@ -30,7 +30,7 @@ A cosine similarity of 0.12 between the query and the closest chunk is not a bas
 
 Anchor checks a similarity floor first. The floor is a minimum score. Below it, there is no answer to give.
 
-The floor is a property of the corpus, not a universal constant. The default is `0.30`. It separates answerable from unanswerable queries on the seeded demo corpus. A different corpus will want a different number. Find it by comparing the similarity distributions of queries you know are answerable against ones you know are not.
+The floor is a property of the corpus, not a universal constant. The default is `0.30`. It has not been calibrated against the seeded demo corpus or any other (see Not measured below). A different corpus will want a different number. Find it by comparing the similarity distributions of queries you know are answerable against ones you know are not.
 
 ## Architecture overview
 
@@ -131,6 +131,10 @@ The p50, p95 and p99 columns are the times that 50%, 95% and 99% of queries stay
 These figures cover the DB-side vector search only (the query plus the round trip on the bench table), roughly 1 to 3 ms. They exclude the upstream embedding API call, which dominates end-to-end latency and is not benchmarked here.
 
 The numbers come from [`.github/workflows/benchmark.yml`](.github/workflows/benchmark.yml). To reproduce them locally, run `node bench/latency-scale.mjs`. It needs Postgres and pgvector via Docker. It uses random vectors and no API key. See the script header.
+
+### Not measured
+
+The only latency numbers in this repo are the database-side benchmark above, and it runs on random vectors, not real embeddings. Its latest run, CI run 37188935917 on 2026-10-04, printed p95 3.45 ms at 100,000 vectors. The p95 of a whole `/api/query` request, which adds the OpenAI embedding call, the rate-limit writes and the network between the app and the database, has never been measured. The 0.30 floor has never been calibrated against a labelled set of answerable and unanswerable questions, so nothing in the repo measures how well it separates them.
 
 ## Stack
 
