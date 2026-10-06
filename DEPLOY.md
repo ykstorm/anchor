@@ -87,12 +87,23 @@ Two notes on latency.
 
 Fly.io and Render are hosting services that can run a Docker image.
 
+Each recipe below needs an image you build from this repo and push to a registry you control:
+
+```bash
+docker build -t <registry>/anchor:<version> .
+docker push <registry>/anchor:<version>
+```
+
+CI's Publish image job pushes `ghcr.io/ykstorm/anchor:latest` and `ghcr.io/ykstorm/anchor:<tag>` only when a `v*` tag is pushed (`.github/workflows/ci.yml`). No tag has been pushed yet, so that image does not exist. After the first tagged release, check the package's visibility in the GitHub package settings before pointing a host at it.
+
+The image runs no migrations. Before you start it, run `npx prisma migrate deploy` from the repo with `DATABASE_URL` set to the target database, then seed it once.
+
 ### Fly.io
 
 Untested: these steps have not been run, and the repo has no `fly.toml`.
 
 ```bash
-fly launch --copy-config --image ghcr.io/ykstorm/anchor:latest
+fly launch --copy-config --image <registry>/anchor:<version>
 fly secrets set OPENAI_API_KEY=sk-... DATABASE_URL=postgresql://...
 fly deploy
 ```
@@ -110,7 +121,7 @@ services:
     name: anchor
     runtime: docker
     image:
-      url: ghcr.io/ykstorm/anchor:latest
+      url: <registry>/anchor:<version>
     envVars:
       - key: OPENAI_API_KEY
         sync: false
@@ -147,7 +158,7 @@ spec:
     spec:
       containers:
         - name: anchor
-          image: ghcr.io/ykstorm/anchor:latest
+          image: <registry>/anchor:<version>
           ports: [{ containerPort: 3000 }]
           envFrom:
             - secretRef: { name: anchor-secrets }
