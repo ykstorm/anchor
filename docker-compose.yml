@@ -1,7 +1,11 @@
-# Anchor — single-command bring-up
-# docker compose up -d                  # postgres + app
-# docker compose exec app npm run seed  # seeds the demo corpus (60 rows)
-# open http://localhost:3000
+# Anchor local stack: Postgres with pgvector, the app, and an optional pgAdmin.
+# Compose runs no migrations, and the app image cannot run the seed (it has no
+# src/), so do both from the repo on your machine, with DATABASE_URL pointing at
+# localhost:5432 (see DEPLOY.md):
+#   docker compose up -d postgres
+#   npx prisma migrate deploy
+#   npm run seed
+#   docker compose up -d app            # then open http://localhost:3000
 
 services:
 

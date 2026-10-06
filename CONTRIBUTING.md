@@ -8,13 +8,15 @@ Thank you for your interest in contributing.
 git clone https://github.com/ykstorm/anchor.git
 cd anchor
 cp .env.example .env
-# fill in OPENAI_API_KEY and DATABASE_URL
+# fill in OPENAI_API_KEY, and set DATABASE_URL to the local docker string in .env.example
+docker compose up -d postgres   # start the database first
 npm install
-npx prisma migrate dev
-docker compose up -d
-curl -X POST http://localhost:3000/api/admin/seed -H "x-seed-token: $SEED_TOKEN"   # seed demo corpus
+npx prisma migrate deploy       # create the tables in it
+npm run seed                    # load and embed the demo corpus
 npm run dev
 ```
+
+Start only the `postgres` service. A bare `docker compose up -d` also starts the app container on port 3000, which `npm run dev` needs. The seed route, `POST /api/admin/seed`, is for deployed copies: compose does not pass `SEED_TOKEN` to the app container, so the route answers 401 there. `npm run seed` does the same work from your machine.
 
 ## Repository structure
 
@@ -30,7 +32,7 @@ anchor/
 └── docs/architecture.md   # System design reference
 ```
 
-The retrieval pipeline embeds the query, which turns it into an embedding, a list of numbers that represents its meaning. It then searches pgvector, the Postgres extension that stores embeddings and searches them by distance. Results below the cosine floor, the minimum similarity score a chunk needs, are dropped. The embed pipeline splits source data into chunks, embeds each chunk and upserts it. An upsert inserts a row, or updates it if it already exists.
+The retrieval pipeline embeds the query, which turns it into an embedding, a list of numbers that represents its meaning. It then searches pgvector, the Postgres extension that stores embeddings and searches them by distance. Results below the cosine floor, the minimum similarity score a chunk needs, are dropped. The embed pipeline turns each source row into one chunk with a text template (the `chunkFor*` functions in `embed-writer.ts`), embeds it and upserts it. Nothing is split: one row gives one chunk, and `sanitize.ts` cuts the text at 2000 characters. An upsert inserts a row, or updates it if it already exists. A seed run then deletes the chunks it did not write.
 
 ## Development workflow
 
@@ -87,7 +89,8 @@ curl http://localhost:3000/api/health
 | Add embed function | `src/lib/rag/embed-writer.ts` |
 | Change cosine floor | `src/lib/rag/retriever.ts` (`SIM_FLOOR`) |
 | Add new entity type | `src/lib/rag/embed-writer.ts` + `prisma/schema.prisma` |
-| Change chunk size | `src/lib/rag/embed-writer.ts` (`chunkFor*` functions) |
+| Change chunk text | `src/lib/rag/embed-writer.ts` (`chunkFor*` functions, one text per row) |
+| Change the 2000-character cut | `src/lib/rag/sanitize.ts` (`MAX_LEN`) |
 | Add API route | `src/app/api/<name>/route.ts` |
 
 ## Commit convention

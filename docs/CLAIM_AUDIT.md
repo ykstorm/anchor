@@ -52,7 +52,7 @@ artifact that backs it. You can check each row from a fresh clone.
 | Postgres + pgvector (README, Stack) | `prisma/schema.prisma` `Unsupported("vector(1536)")`, `docker-compose.yml` `pgvector/pgvector:pg16` |
 | HNSW index on `Embedding.embedding` (README, SPEC) | `prisma/migrations/20261001090000_add_hnsw_index/migration.sql` |
 | Prisma migration with `CREATE EXTENSION vector` (SPEC) | `prisma/migrations/00000000000000_init/migration.sql` |
-| `docker-compose up -d` gives a local DB (README quickstart) | `docker-compose.yml` `postgres` service + healthcheck |
+| `docker compose up -d postgres` gives a local Postgres with the `vector` extension and no tables; the quickstart then runs the migrations and the seed from the host (README quickstart) | `docker-compose.yml` `postgres` service + healthcheck, `prisma/init/01-extensions.sql`. A bare `docker compose up -d` also builds and starts the `app` service on port 3000 |
 | Seed loads a 60-row synthetic corpus (README quickstart) | `prisma/seed.ts`, which uses `src/lib/rag/demo-seeder.ts` (16 projects, 5 builders, 4 localities, 4 infra, 31 POIs) |
 | Postgres fixed-window rate limiting | `prisma/migrations/20261001090100_add_rate_limit/migration.sql` + `src/lib/rate-limit.ts` |
 

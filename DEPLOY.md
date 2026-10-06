@@ -2,7 +2,7 @@
 
 Anchor can be deployed three ways.
 
-1. Local dev: `docker compose up`.
+1. Local dev: Postgres (and optionally the app) in docker compose, with migrations and the seed run from your machine.
 2. Vercel + Neon: the production setup. Vercel hosts the app. Neon hosts the Postgres database. The examples use `anchor.example.com` as a placeholder for your own domain.
 3. Self-hosted: on your own Kubernetes, Fly.io, Render, or any Postgres with pgvector. pgvector is the Postgres extension that stores embeddings and searches them by distance. An embedding is a list of numbers that represents the meaning of a text.
 
@@ -13,11 +13,21 @@ Anchor can be deployed three ways.
 ```bash
 git clone https://github.com/ykstorm/anchor && cd anchor
 cp .env.example .env
-# paste your OPENAI_API_KEY into .env
-docker compose up -d
-docker compose exec app npm run seed   # seeds the demo corpus (60 rows)
+# in .env, paste your OPENAI_API_KEY and set DATABASE_URL to
+# postgresql://anchor:anchor@localhost:5432/anchor?sslmode=disable
+docker compose up -d postgres   # Postgres + pgvector on localhost:5432
+npm install
+npx prisma migrate deploy       # creates the tables and the HNSW index
+npm run seed                    # loads the demo corpus (60 rows) and embeds it
+docker compose up -d app        # builds and starts the app on port 3000
 open http://localhost:3000/playground
 ```
+
+Compose does not run migrations or the seed. The database container only creates the `vector` extension on first boot (`prisma/init/01-extensions.sql`), and the app image holds the built server but not `src/`, which `prisma/seed.ts` imports. So both steps run from your machine against the database container, before the app starts.
+
+To work on the code with `npm run dev` instead, skip the last compose step. The app container and the dev server both use port 3000.
+
+The seed route answers 401 inside compose, because compose does not pass `SEED_TOKEN` to the app container. Use `npm run seed` locally.
 
 To stop the stack, run `docker compose down`. To stop it and wipe the data, run `docker compose down -v`.
 

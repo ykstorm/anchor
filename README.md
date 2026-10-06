@@ -56,8 +56,10 @@ git clone https://github.com/ykstorm/anchor.git && cd anchor
 #    postgresql://anchor:anchor@localhost:5432/anchor?sslmode=disable
 cp .env.example .env
 
-# 3. Start Postgres + pgvector (creates the `vector` extension on first boot)
-docker-compose up -d
+# 3. Start Postgres + pgvector (creates the `vector` extension on first boot).
+#    Name the service: a bare `docker compose up -d` also builds and starts the
+#    app container on port 3000, the port `npm run dev` needs in step 7.
+docker compose up -d postgres
 
 # 4. Install deps
 npm install

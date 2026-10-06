@@ -48,7 +48,9 @@ COPY --from=builder --chown=anchor:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=anchor:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=anchor:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Embed-writer scripts (so `docker compose exec app npm run seed` works)
+# scripts/ and the full node_modules. This does not make the seed runnable in
+# the image: prisma/seed.ts imports src/, which is not copied. Seed from the
+# host instead (DEPLOY.md, Local dev).
 COPY --from=builder --chown=anchor:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=anchor:nodejs /app/node_modules ./node_modules
 
