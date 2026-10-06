@@ -187,7 +187,8 @@ curl -fsS -X POST $HOST/api/query \
 If any check fails, look at the Vercel logs with `vercel logs`. These are the responses and log lines the code produces.
 
 - `/api/health` returns 503 with `{"ok":false,"db":false}` when its `SELECT 1` against the database fails (`src/app/api/health/route.ts`). Check `DATABASE_URL` and that the database is reachable.
-- `/api/query` returns 503 with `{"error":"Retrieval temporarily unavailable"}` and logs `[query] retrieval failed:` followed by a reason (`src/app/api/query/route.ts`). The reason is one of the three below.
+- `/api/query` returns 503 with `{"error":"Retrieval temporarily unavailable"}` and logs `[query] retrieval failed:` followed by a reason (`src/app/api/query/route.ts`). The reason is one of the four below.
+  - `rate limit check failed` means the rate limiter could not write its count to the `RateLimit` table. It runs before anything else touches the database, so this is usually the first sign that the database is down. Check `DATABASE_URL` and that the database is reachable.
   - `embedding failed` means the call to OpenAI failed. Check that `OPENAI_API_KEY` is set in the Vercel environment variables, then redeploy.
   - `db query timed out` means the vector search ran past its 5 second limit. Check that the Neon region matches the Vercel region.
   - `db query failed` means the database query itself failed. Check `DATABASE_URL` and that the migrations were applied.

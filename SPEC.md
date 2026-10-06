@@ -20,7 +20,7 @@ Each row is a feature and the file that implements it. HNSW (Hierarchical Naviga
 | 0.30 similarity floor, applied uniformly (`SIM_FLOOR`) | `src/lib/rag/retriever.ts` |
 | Adaptive K (6 normal, 10 amenity), floor unchanged | `src/lib/rag/retriever.ts` |
 | 5000ms DB query budget; OpenAI client timeout 8000ms, 1 retry | `src/lib/rag/retriever.ts`, `src/lib/openai.ts` |
-| Failure raises `RetrievalError`, and the route returns 503 | `src/lib/rag/retriever.ts`, `src/app/api/query/route.ts` |
+| Failure raises `RetrievalError`, and the route returns 503; a failed rate-limit write returns the same 503 | `src/lib/rag/retriever.ts`, `src/app/api/query/route.ts` |
 | Tagged `$queryRaw` (no `*RawUnsafe`), eslint-banned | `src/lib/rag/retriever.ts`, `eslint.config.mjs` |
 | Chunk sanitation (strips control and zero-width characters, collapses whitespace, caps length at 2000) | `src/lib/rag/sanitize.ts` |
 | Idempotent upsert (unique on `sourceType + sourceId`) | `src/lib/rag/embed-writer.ts` |
@@ -29,9 +29,9 @@ Each row is a feature and the file that implements it. HNSW (Hierarchical Naviga
 | Postgres fixed-window rate limiting (20/min IP, 1000/hr global) | `src/lib/rate-limit.ts` |
 | Health endpoint probes DB (`SELECT 1`), returns `{ok, db}`, 503 on fail | `src/app/api/health/route.ts` |
 | Prisma migrations, including `CREATE EXTENSION vector` and the HNSW index | `prisma/migrations/` |
-| 50 tests passing | `tests/*.test.ts` |
+| 51 tests passing | `tests/*.test.ts` |
 
-Test breakdown: retriever 10, rate-limit 10, query-route 8, sources 7, sanitize 6,
+Test breakdown: retriever 10, rate-limit 10, query-route 9, sources 7, sanitize 6,
 embed-writer 5, retriever-floor 4.
 
 ## Architecture

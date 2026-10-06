@@ -58,6 +58,8 @@ human. This deliberate miss is what a naive top-K retriever lacks.
 
 A failure is not a miss. An embedding or DB error raises `RetrievalError` and the
 route returns 503, so the caller never mistakes a broken dependency for "no answer".
+The rate limiter writes to the database before retrieval starts; if that write
+fails, the route returns the same 503 without calling the embedder.
 
 ---
 
@@ -99,7 +101,7 @@ on-topic location rows, but a weak match stays a refusal.
 | All candidates below the floor | Empty chunks + `refused: true` + `maxSimilarity` reported |
 | DB query exceeds the 5000ms budget | `RetrievalError`, 503 (not a refusal) |
 | Embedding call fails | `RetrievalError`, 503 (not a refusal) |
-| DB connection drops | `RetrievalError`, 503; error logged server-side |
+| DB connection drops | 503 and a `[query] retrieval failed:` log line, whether the rate-limit write or the search fails first |
 | Malformed request (bad JSON, empty `q`, non-JSON body, foreign Origin) | 400 / 415 / 403 before any embedding call |
 | Too many requests | 429 + `Retry-After` (20/min per caller, 1000/hr global) |
 | Duplicate seed run | Idempotent upsert on `(sourceType, sourceId)` |

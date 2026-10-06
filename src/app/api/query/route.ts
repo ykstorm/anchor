@@ -21,6 +21,30 @@ function json(body: unknown, init?: { status?: number; headers?: Record<string, 
   })
 }
 
+// Every retrieval failure answers the same 503 with one log line, so a broken
+// dependency is never mistaken for a refusal.
+function unavailable(reason: string) {
+  console.error('[query] retrieval failed:', reason)
+  return json({ error: 'Retrieval temporarily unavailable' }, { status: 503 })
+}
+
+// The limiter counts requests in the same database the search reads. If its
+// write fails, the search would fail too, so answer the retrieval 503 straight
+// away instead of letting the error escape as a 500 or paying for an embedding.
+async function rateLimitResponse(req: NextRequest): Promise<NextResponse | null> {
+  let limit
+  try {
+    limit = await enforceQueryRateLimit(req)
+  } catch {
+    return unavailable('rate limit check failed')
+  }
+  if (limit.ok) return null
+  return json(
+    { error: 'Too many requests' },
+    { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+  )
+}
+
 // Reject cross-site form/script POSTs. A missing Origin (curl, server-to-server)
 // is allowed; a present Origin must match the request host.
 function originAllowed(req: NextRequest): boolean {
@@ -43,13 +67,8 @@ export async function POST(req: NextRequest) {
     return json({ error: 'Forbidden origin' }, { status: 403 })
   }
 
-  const limit = await enforceQueryRateLimit(req)
-  if (!limit.ok) {
-    return json(
-      { error: 'Too many requests' },
-      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
-    )
-  }
+  const limited = await rateLimitResponse(req)
+  if (limited) return limited
 
   let body: unknown
   try {
@@ -72,10 +91,7 @@ export async function POST(req: NextRequest) {
   try {
     result = await retrieveChunks(q, 6)
   } catch (err) {
-    if (err instanceof RetrievalError) {
-      console.error('[query] retrieval failed:', err.message)
-      return json({ error: 'Retrieval temporarily unavailable' }, { status: 503 })
-    }
+    if (err instanceof RetrievalError) return unavailable(err.message)
     throw err
   }
 

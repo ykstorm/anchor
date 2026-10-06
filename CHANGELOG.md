@@ -34,10 +34,11 @@ These changes are on main since 0.1.0.
 - `.env.example` uses `REPLACE_ME` placeholders. `docker-compose.yml` reads the Postgres and pgAdmin credentials from environment variables with local defaults. `.gitignore` covers `.env.*` except `.env.example`.
 - `.env.example` no longer lists `DIRECT_URL` and `NEXT_PUBLIC_DEMO_MODE`, which nothing reads, and now lists `SEED_TOKEN`, which the seed route requires.
 - Next.js was upgraded to 16.3.x, and `npm audit fix` was applied.
-- Unit tests grew from 15 to 50.
+- Unit tests grew from 15 to 51.
 - The README, `ARCHITECTURE.md`, `SPEC.md`, the design docs, `DEPLOY.md`, `SECURITY.md`, `ROADMAP.md`, `CHANGELOG.md` and `CONTRIBUTING.md` were rewritten in plain English.
 
 ### Fixed
+- A database error in the rate limiter made `/api/query` answer 500. The route now catches it and answers the documented 503, logging `[query] retrieval failed: rate limit check failed`, before any embedding call.
 - The CI workflow now also runs on `v*` tag pushes, so the image publish job can run.
 - `ARCHITECTURE.md` said amenity queries use a 0.20 floor. It now says the floor stays 0.30 and only K changes.
 

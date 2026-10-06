@@ -41,7 +41,7 @@ Query → Embed → pgvector cosine similarity → {best score ≥ floor?} → Y
 - Cosine floor: a configurable threshold (default 0.30). Below it the result is empty and `refused` is true. The floor is never lowered by the query text.
 - Adaptive K: precision queries use K=6. Amenity queries ask about nearby facilities, such as "schools near North Ridge". They widen to K=10 and boost on-topic location rows, but keep the same floor.
 - Provenance: every chunk carries its `sourceId`. The response includes a de-duplicated `sources[]` array.
-- Failure is not refusal: an embedding or database error raises `RetrievalError` and the route returns 503. It is never reported as an empty "no answer".
+- Failure is not refusal: an embedding or database error returns 503, including a database error in the rate limiter, which runs first. It is never reported as an empty "no answer".
 
 ## Quickstart (clean machine, <5 min)
 
