@@ -1,10 +1,15 @@
-# Anchor — System Architecture
+# Anchor system architecture
 
 ## Why this document exists
 
-Most "RAG system" diagrams are happy-path arrows: query → embed → search →
-answer. They hide where things go wrong. This doc traces both paths — the match
-and the miss — and shows where each check earns its keep.
+Most RAG system diagrams show only the happy path: query, embed, search, answer.
+RAG (retrieval-augmented generation) means fetching relevant text and giving it
+to a language model to answer from. The happy-path diagrams hide where things go
+wrong. This document traces both paths, the match and the miss, and says what
+each check catches.
+
+Terms such as pgvector, cosine similarity, floor and provenance are defined in
+the [README](../README.md).
 
 ---
 
@@ -25,7 +30,7 @@ store it in the embedding table in Postgres.
 
 ---
 
-## 2. Read path — query sequence
+## 2. Read path: query sequence
 
 1. The user's query, `{"q": "schools near North Ridge"}`, reaches
    `POST /api/query`, which calls `retrieveChunks(q, 6)`.
@@ -41,19 +46,22 @@ store it in the embedding table in Postgres.
    similarity and chunkCount per source) and answers 200 with the chunks,
    `refused`, `floor` and `maxSimilarity`.
 
-       some chunks left: refused is false; the caller's LLM answers, citing sources
-       none left: refused is true; the caller replies "I don't have a source for that."
+After step 6, one of two things happens:
 
-**Why the no-answer path matters.** When `chunks: []` and `refused: true`, the
-caller must not synthesize from priors — it should fall back (ask a clarifying
-question, point to documentation, hand off to a human). That engineered miss is
-the difference between Anchor and a naive top-K retriever. A failure, by contrast,
-is not a miss: an embedding or DB error raises `RetrievalError` and the route
-returns 503, so the caller never mistakes a broken dependency for "no answer".
+- Some chunks are left. `refused` is false, and the caller's LLM answers, citing the sources.
+- None are left. `refused` is true, and the caller replies "I don't have a source for that."
+
+The no-answer path matters. When `chunks` is empty and `refused` is true, the
+caller must not synthesize an answer from the model's prior knowledge. It should
+fall back: ask a clarifying question, point to documentation, or hand off to a
+human. This deliberate miss is what a naive top-K retriever lacks.
+
+A failure is not a miss. An embedding or DB error raises `RetrievalError` and the
+route returns 503, so the caller never mistakes a broken dependency for "no answer".
 
 ---
 
-## 3. Write path — document ingestion
+## 3. Write path: document ingestion
 
 1. The operator runs `npm run seed` (`prisma/seed.ts`).
 2. The script seeds the demo rows, then reads them back from the seeded tables.
@@ -76,10 +84,10 @@ Three checks, all in this repo:
 | # | Check | Where it lives | What it catches |
 |---|---|---|---|
 | 1 | Cosine floor | `retriever.ts` (`SIM_FLOOR` filter) | Top-K results that are returned but too weak to answer from |
-| 2 | Failure ≠ refusal | `retriever.ts` (`RetrievalError`) → `api/query` 503 | A broken embedder/DB reported as a false "no answer" |
-| 3 | Provenance | `sources.ts` (`buildSources`) | A chunk going in without a named source coming out |
+| 2 | Failure is not refusal | `retriever.ts` (`RetrievalError`), then `api/query` 503 | A broken embedder/DB reported as a false "no answer" |
+| 3 | Provenance | `sources.ts` (`buildSources`) | A chunk coming out without a named source |
 
-The floor is never lowered by the query text — amenity queries widen K and boost
+The floor is never lowered by the query text. Amenity queries widen K and boost
 on-topic location rows, but a weak match stays a refusal.
 
 ---
@@ -89,9 +97,9 @@ on-topic location rows, but a weak match stays a refusal.
 | Situation | Anchor behavior |
 |---|---|
 | All candidates below the floor | Empty chunks + `refused: true` + `maxSimilarity` reported |
-| DB query exceeds the 5000ms budget | `RetrievalError` → 503 (not a refusal) |
-| Embedding call fails | `RetrievalError` → 503 (not a refusal) |
-| DB connection drops | `RetrievalError` → 503; error logged server-side |
+| DB query exceeds the 5000ms budget | `RetrievalError`, 503 (not a refusal) |
+| Embedding call fails | `RetrievalError`, 503 (not a refusal) |
+| DB connection drops | `RetrievalError`, 503; error logged server-side |
 | Malformed request (bad JSON, empty `q`, non-JSON body, foreign Origin) | 400 / 415 / 403 before any embedding call |
 | Too many requests | 429 + `Retry-After` (20/min per caller, 1000/hr global) |
 | Duplicate seed run | Idempotent upsert on `(sourceType, sourceId)` |
@@ -100,10 +108,10 @@ on-topic location rows, but a weak match stays a refusal.
 
 ## 6. What's intentionally out of scope (v0.1)
 
-- **Re-ranking.** A cross-encoder rerank pass would improve quality at a latency cost. Not shipped.
-- **Hybrid retrieval (BM25 + vector).** Proper nouns hurt pure vector search; hybrid is future work.
-- **Multi-tenant isolation.** Single-tenant Postgres schema; there is no per-tenant namespace.
-- **Streaming.** Anchor returns chunks synchronously. Streaming a model response is the caller's job.
+- Re-ranking. A cross-encoder rerank pass (a model that scores each query and chunk pair together) would improve quality at a latency cost. Not shipped.
+- Hybrid retrieval (BM25 + vector). BM25 is a keyword-ranking function. Proper nouns hurt pure vector search, so hybrid is future work.
+- Multi-tenant isolation. The Postgres schema is single-tenant; there is no per-tenant namespace.
+- Streaming. Anchor returns chunks synchronously. Streaming a model response is the caller's job.
 
 ---
 
@@ -113,9 +121,9 @@ Users reach the Anchor Next.js app, running as Vercel serverless functions,
 over HTTPS. The app connects to Neon Postgres (with pgvector) through the
 pooled connection string and calls the OpenAI embeddings API.
 
-- **Compute:** Vercel serverless functions (Node runtime).
-- **Database:** Neon Postgres (free tier supports pgvector, with branching for preview deploys).
-- **Embedder:** OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on load).
-- **Observability:** Vercel Analytics for page latency (query strings stripped before send).
+- Compute: Vercel serverless functions (Node runtime).
+- Database: Neon Postgres (free tier supports pgvector, with branching for preview deploys).
+- Embedder: OpenAI text-embedding-3-small (~$0.02 per million tokens; latency depends on load).
+- Observability: Vercel Analytics for page latency (query strings stripped before send).
 
 Self-hosted alternative: any Postgres with pgvector + any Node runtime.
