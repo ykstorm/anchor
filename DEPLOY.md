@@ -85,6 +85,8 @@ Fly can also run a managed Postgres with pgvector: `fly postgres create --vector
 
 ### Render
 
+Untested: these steps have not been run, and the repo has no `render.yaml`.
+
 ```yaml
 # render.yaml
 services:
@@ -108,6 +110,8 @@ databases:
 ```
 
 ### Kubernetes
+
+Untested: these manifests have not been applied, and the repo has no `k8s/` folder.
 
 Kubernetes runs containers across a cluster of machines.
 
