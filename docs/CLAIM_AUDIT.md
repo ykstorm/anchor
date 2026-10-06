@@ -1,38 +1,38 @@
 # Claim Audit
 
-Every public, user-facing claim about Anchor mapped to the code or artifact that
-backs it. Each row is verifiable from a fresh clone.
+This file maps every public, user-facing claim about Anchor to the code or
+artifact that backs it. You can check each row from a fresh clone.
 
 ## Headline behaviour
 
 | Claim (source) | Backed by |
 |---|---|
-| Returns chunks when the best similarity ≥ floor, else refuses (README) | `src/lib/rag/retriever.ts` (`SIM_FLOOR` filter) + `src/app/api/query/route.ts` (`refused = chunks.length === 0`) |
-| Cosine floor, default 0.30, applied uniformly (README, SPEC) | `src/lib/rag/retriever.ts` — `export const SIM_FLOOR = 0.30` |
-| Floor is never lowered by the query text (README, SPEC) | `src/lib/rag/retriever.ts` — amenity path changes K only; proven by `tests/retriever-floor.test.ts` |
-| Adaptive K (6 normal, 10 amenity) (README, SPEC) | `src/lib/rag/retriever.ts` — `effectiveK = isAmenityQuery ? Math.max(k, 10) : k` |
+| Returns chunks when the best similarity is at or above the floor, else refuses (README) | `src/lib/rag/retriever.ts` (`SIM_FLOOR` filter) + `src/app/api/query/route.ts` (`refused = chunks.length === 0`) |
+| Cosine floor, default 0.30, applied uniformly (README, SPEC) | `src/lib/rag/retriever.ts`: `export const SIM_FLOOR = 0.30` |
+| Floor is never lowered by the query text (README, SPEC) | `src/lib/rag/retriever.ts`: the amenity path changes K only; proven by `tests/retriever-floor.test.ts` |
+| Adaptive K (6 normal, 10 amenity) (README, SPEC) | `src/lib/rag/retriever.ts`: `effectiveK = isAmenityQuery ? Math.max(k, 10) : k` |
 | DB query budget 5000ms; OpenAI client timeout 8000ms, 1 retry (SPEC) | `src/lib/rag/retriever.ts` (`DB_TIMEOUT_MS`), `src/lib/openai.ts` |
-| Failure is not refusal — error → 503 (README, SPEC) | `src/lib/rag/retriever.ts` (`RetrievalError`) + `src/app/api/query/route.ts` (503) — proven by `tests/query-route.test.ts`, `tests/retriever-floor.test.ts` |
-| pgvector cosine distance via `<=>`, tagged `$queryRaw` (SPEC) | `src/lib/rag/retriever.ts` — `embedding <=> ${vecStr}::vector` |
+| Failure is not refusal: an error returns 503 (README, SPEC) | `src/lib/rag/retriever.ts` (`RetrievalError`) + `src/app/api/query/route.ts` (503); proven by `tests/query-route.test.ts`, `tests/retriever-floor.test.ts` |
+| pgvector cosine distance via `<=>`, tagged `$queryRaw` (SPEC) | `src/lib/rag/retriever.ts`: `embedding <=> ${vecStr}::vector` |
 | Response reports `floor` and `maxSimilarity` (README, SPEC) | `src/app/api/query/route.ts` |
 
-## Provenance — `sources[]`
+## Provenance: `sources[]`
 
 | Claim (source) | Backed by |
 |---|---|
 | Every grounded `/api/query` response includes a structured `sources[]` array (README) | `src/lib/rag/sources.ts` (`buildSources`) wired in `src/app/api/query/route.ts` |
 | Each entry carries `sourceId` / `sourceType` provenance (README, docs/architecture.md) | `Source` type in `src/lib/rag/sources.ts` (`{ sourceId, sourceType, similarity, chunkCount }`) |
-| `sources[]` deduped across chunks | `src/lib/rag/sources.ts` — proven by `tests/sources.test.ts` and `tests/query-route.test.ts` |
-| Refused responses return empty `sources[]` | `buildSources([]) === []` — `tests/sources.test.ts`, `tests/query-route.test.ts` |
+| `sources[]` deduped across chunks | `src/lib/rag/sources.ts`; proven by `tests/sources.test.ts` and `tests/query-route.test.ts` |
+| Refused responses return empty `sources[]` | `buildSources([]) === []`; tested in `tests/sources.test.ts`, `tests/query-route.test.ts` |
 
 ## Embedding / write path
 
 | Claim (source) | Backed by |
 |---|---|
 | OpenAI `text-embedding-3-small`, 1536-dim (README, SPEC) | `src/lib/rag/embed-writer.ts` + `prisma/schema.prisma` (`vector(1536)`) |
-| Chunk sanitation on read and write (SPEC) | `src/lib/rag/sanitize.ts` used in `retriever.ts` and `embed-writer.ts` — `tests/sanitize.test.ts` |
+| Chunk sanitation on read and write (SPEC) | `src/lib/rag/sanitize.ts` used in `retriever.ts` and `embed-writer.ts`; tested in `tests/sanitize.test.ts` |
 | Idempotent upsert by `(sourceType, sourceId)` (SPEC) | `prisma/schema.prisma` `@@unique` + `embed-writer.ts` `ON CONFLICT` |
-| Per-entity chunk templates (SPEC) | `src/lib/rag/embed-writer.ts` — `chunkForProject/Builder/Locality/Infra/LocationData` |
+| Per-entity chunk templates (SPEC) | `src/lib/rag/embed-writer.ts`: `chunkForProject/Builder/Locality/Infra/LocationData` |
 | Sensitive builder fields excluded from AI context (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` (no contact/commission fields) |
 
 ## Endpoints
@@ -40,7 +40,7 @@ backs it. Each row is verifiable from a fresh clone.
 | Claim (source) | Backed by |
 |---|---|
 | `/api/query` POST (README, DEPLOY) | `src/app/api/query/route.ts` |
-| `/api/query` rate-limited, 415/403/400/429 guards | `src/app/api/query/route.ts` + `src/lib/rate-limit.ts` — `tests/query-route.test.ts`, `tests/rate-limit.test.ts` |
+| `/api/query` rate-limited, 415/403/400/429 guards | `src/app/api/query/route.ts` + `src/lib/rate-limit.ts`; tested in `tests/query-route.test.ts`, `tests/rate-limit.test.ts` |
 | `/api/health` probes DB, returns `{ok, db}`, 503 on fail (SPEC, DEPLOY) | `src/app/api/health/route.ts` |
 | `/playground` interactive query UI (README) | `src/app/playground/page.tsx` |
 
@@ -52,14 +52,14 @@ backs it. Each row is verifiable from a fresh clone.
 | HNSW index on `Embedding.embedding` (README, SPEC) | `prisma/migrations/20261001090000_add_hnsw_index/migration.sql` |
 | Prisma migration with `CREATE EXTENSION vector` (SPEC) | `prisma/migrations/00000000000000_init/migration.sql` |
 | `docker-compose up -d` gives a local DB (README quickstart) | `docker-compose.yml` `postgres` service + healthcheck |
-| Seed loads a 60-row synthetic corpus (README quickstart) | `prisma/seed.ts` → `src/lib/rag/demo-seeder.ts` (16 projects, 5 builders, 4 localities, 4 infra, 31 POIs) |
+| Seed loads a 60-row synthetic corpus (README quickstart) | `prisma/seed.ts`, which uses `src/lib/rag/demo-seeder.ts` (16 projects, 5 builders, 4 localities, 4 infra, 31 POIs) |
 | Postgres fixed-window rate limiting | `prisma/migrations/20261001090100_add_rate_limit/migration.sql` + `src/lib/rate-limit.ts` |
 
 ## Stack versions
 
 | Claim (source) | Backed by |
 |---|---|
-| Next.js ^16.3 (README badge, Stack, SPEC) | `package.json` `"next": "^16.3.0"` |
+| Next.js ^16.3 (README Stack, SPEC) | `package.json` `"next": "^16.3.0"` |
 | Prisma 7 (README, SPEC) | `package.json` `"@prisma/client": "^7.5.0"` |
 | React 19.2.7 (SPEC) | `package.json` `"react": "19.2.7"` |
 
