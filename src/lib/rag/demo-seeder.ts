@@ -4,6 +4,10 @@ import { prisma } from '@/lib/prisma'
 // interest, and source URL below is an invented placeholder. It exists to
 // exercise retrieval (on-topic queries) and refusal (off-topic queries), not to
 // describe any real company, project, or place.
+//
+// seedDemoData replaces the corpus tables with this set: it upserts every row
+// below, then deletes every other row in those five tables, so rows from an
+// older corpus cannot be embedded and served again.
 
 const BUILDERS = [
   { builderName: 'Builder A', brandName: 'Builder A', deliveryScore: 23, reraScore: 14, qualityScore: 19, financialScore: 13, responsivenessScore: 12, totalTrustScore: 81, grade: 'A' },
@@ -80,27 +84,59 @@ const LOCATION_DATA = [
   { category: 'transport', name: 'Metro Ridge Station', microMarket: 'South Hollow', notes: '~1.2km, expected soon' },
 ]
 
+type PerTable<T> = { projects: T; builders: T; localities: T; infrastructure: T; locationData: T }
+
 export async function seedDemoData() {
+  const kept: PerTable<string[]> = { projects: [], builders: [], localities: [], infrastructure: [], locationData: [] }
+  const id = { select: { id: true } } as const
   for (const b of BUILDERS) {
-    await prisma.builder.upsert({ where: { builderName: b.builderName }, create: b, update: b })
+    kept.builders.push((await prisma.builder.upsert({ where: { builderName: b.builderName }, create: b, update: b, ...id })).id)
   }
   for (const l of LOCALITIES) {
-    await prisma.locality.upsert({ where: { name: l.name }, create: l, update: l })
+    kept.localities.push((await prisma.locality.upsert({ where: { name: l.name }, create: l, update: l, ...id })).id)
   }
   for (const i of INFRASTRUCTURE) {
-    await prisma.infrastructure.upsert({ where: { name: i.name }, create: i, update: i })
+    kept.infrastructure.push((await prisma.infrastructure.upsert({ where: { name: i.name }, create: i, update: i, ...id })).id)
   }
   for (const p of PROJECTS) {
-    const existing = await prisma.project.findFirst({ where: { projectName: p.projectName, builderName: p.builderName }, select: { id: true } })
-    if (existing) await prisma.project.update({ where: { id: existing.id }, data: p })
-    else await prisma.project.create({ data: p })
+    const existing = await prisma.project.findFirst({ where: { projectName: p.projectName, builderName: p.builderName }, ...id })
+    const row = existing
+      ? await prisma.project.update({ where: { id: existing.id }, data: p, ...id })
+      : await prisma.project.create({ data: p, ...id })
+    kept.projects.push(row.id)
   }
   for (const ld of LOCATION_DATA) {
-    await prisma.locationData.upsert({
+    kept.locationData.push((await prisma.locationData.upsert({
       where: { category_name_microMarket: { category: ld.category, name: ld.name, microMarket: ld.microMarket } },
       create: ld,
       update: { notes: ld.notes },
-    })
+      ...id,
+    })).id)
   }
-  return { builders: BUILDERS.length, localities: LOCALITIES.length, infrastructure: INFRASTRUCTURE.length, projects: PROJECTS.length, locationData: LOCATION_DATA.length }
+  const upserted = { builders: BUILDERS.length, localities: LOCALITIES.length, infrastructure: INFRASTRUCTURE.length, projects: PROJECTS.length, locationData: LOCATION_DATA.length }
+  const removed = await removeRowsOutside(kept)
+  console.log('[seed] corpus rows upserted:', upserted, 'removed:', removed)
+  return { ...upserted, removed }
+}
+
+// Deletes every row of the five corpus tables whose id is not one the seeder
+// just wrote. Data-modifying CTEs make it one statement, so Postgres applies
+// all five deletes in a single transaction or none of them. (The Neon HTTP
+// adapter used in production rejects prisma.$transaction.)
+async function removeRowsOutside(kept: PerTable<string[]>): Promise<PerTable<number>> {
+  const rows = await prisma.$queryRaw<PerTable<number>[]>`
+    WITH
+      p AS (DELETE FROM "Project" WHERE id <> ALL(${kept.projects}::text[]) RETURNING 1),
+      b AS (DELETE FROM "Builder" WHERE id <> ALL(${kept.builders}::text[]) RETURNING 1),
+      l AS (DELETE FROM "Locality" WHERE id <> ALL(${kept.localities}::text[]) RETURNING 1),
+      i AS (DELETE FROM "Infrastructure" WHERE id <> ALL(${kept.infrastructure}::text[]) RETURNING 1),
+      d AS (DELETE FROM "LocationData" WHERE id <> ALL(${kept.locationData}::text[]) RETURNING 1)
+    SELECT
+      (SELECT count(*) FROM p)::int AS "projects",
+      (SELECT count(*) FROM b)::int AS "builders",
+      (SELECT count(*) FROM l)::int AS "localities",
+      (SELECT count(*) FROM i)::int AS "infrastructure",
+      (SELECT count(*) FROM d)::int AS "locationData"
+  `
+  return rows[0]
 }

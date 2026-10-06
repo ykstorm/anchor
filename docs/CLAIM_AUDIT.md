@@ -32,6 +32,7 @@ artifact that backs it. You can check each row from a fresh clone.
 | OpenAI `text-embedding-3-small`, 1536-dim (README, SPEC) | `src/lib/rag/embed-writer.ts` + `prisma/schema.prisma` (`vector(1536)`) |
 | Chunk sanitation on read and write (SPEC) | `src/lib/rag/sanitize.ts` used in `retriever.ts` and `embed-writer.ts`; tested in `tests/sanitize.test.ts` |
 | Idempotent upsert by `(sourceType, sourceId)` (SPEC) | `prisma/schema.prisma` `@@unique` + `embed-writer.ts` `ON CONFLICT` |
+| A seed run replaces the corpus: rows and chunks outside the demo set are deleted (README, DEPLOY) | `src/lib/rag/demo-seeder.ts` (`removeRowsOutside`), `src/lib/rag/seed-runner.ts` (`removeUnwrittenChunks`); proven by `tests/seed-replace.test.ts` |
 | Per-entity chunk templates (SPEC) | `src/lib/rag/embed-writer.ts`: `chunkForProject/Builder/Locality/Infra/LocationData` |
 | Sensitive builder fields excluded from AI context (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` (no contact/commission fields) |
 
@@ -67,7 +68,7 @@ artifact that backs it. You can check each row from a fresh clone.
 
 | Claim (source) | Backed by |
 |---|---|
-| 51 tests passing (SPEC) | `tests/*.test.ts` |
+| 54 tests passing (SPEC) | `tests/*.test.ts` |
 | `detectAmenityCategories` tested against the real source | `tests/retriever.test.ts` imports from `@/lib/rag/retriever` |
 | Floor cannot be lowered by query text | `tests/retriever-floor.test.ts` |
 | `sources[]` shape + dedup tested | `tests/sources.test.ts`, `tests/query-route.test.ts` |

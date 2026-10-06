@@ -65,8 +65,10 @@ fails, the route returns the same 503 without calling the embedder.
 
 ## 3. Write path: document ingestion
 
-1. The operator runs `npm run seed` (`prisma/seed.ts`).
-2. The script seeds the demo rows, then reads them back from the seeded tables.
+1. The operator runs `npm run seed` (`prisma/seed.ts`), or calls
+   `POST /api/admin/seed` with the `x-seed-token` header.
+2. The seeder upserts the demo rows, then deletes every other row in the five
+   corpus tables in one statement. It then reads the rows back from those tables.
 3. For each row, the entity's chunker (`chunkFor<Entity>(row)`) builds the
    chunk text.
 4. `upsertEmbedding` sanitizes that text and embeds it as a 1536-dimension
@@ -75,7 +77,10 @@ fails, the route returns the same 503 without calling the embedder.
    embedding table with
    `INSERT ... ON CONFLICT ("sourceType", "sourceId") DO UPDATE`, so a re-run
    updates rows instead of duplicating them.
-6. The script reports how many rows it embedded.
+6. Once every row is stored, one statement deletes every chunk whose
+   `(sourceType, sourceId)` was not written in this run, so a source that left
+   the corpus stops being served. If any upsert fails, no chunk is deleted.
+7. The seeder logs how many rows and chunks it wrote and how many it removed.
 
 ---
 
@@ -104,7 +109,8 @@ on-topic location rows, but a weak match stays a refusal.
 | DB connection drops | 503 and a `[query] retrieval failed:` log line, whether the rate-limit write or the search fails first |
 | Malformed request (bad JSON, empty `q`, non-JSON body, foreign Origin) | 400 / 415 / 403 before any embedding call |
 | Too many requests | 429 + `Retry-After` (20/min per caller, 1000/hr global) |
-| Duplicate seed run | Idempotent upsert on `(sourceType, sourceId)` |
+| Duplicate seed run | Same rows: upserts on the same keys, and nothing outside the run to delete |
+| Seed run after the corpus changed | Rows and chunks no longer in the corpus are deleted |
 
 ---
 

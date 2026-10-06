@@ -42,6 +42,7 @@ Then set up Vercel.
    ```
    DATABASE_URL      = <neon pooled connection string>
    OPENAI_API_KEY    = sk-...
+   SEED_TOKEN        = <long random string>   # optional, turns on POST /api/admin/seed
    ```
 4. Override the build command with `npx prisma generate && npx prisma migrate deploy && next build`.
 5. Deploy.
@@ -53,12 +54,17 @@ To use a custom domain:
 1. In Vercel, open Project, then Settings, then Domains, and add `anchor.example.com`.
 2. In your DNS, add a CNAME record named `anchor` that points to `cname.vercel-dns.com`. A CNAME is a DNS record that makes one name an alias for another.
 
-To seed the demo corpus, run this locally against the production database:
+To seed the demo corpus, call the seed route on the deployed app, or run the seed locally against the production database:
 
 ```bash
-# locally, against the prod DB
+# the seed route, once SEED_TOKEN is set in Vercel
+curl -X POST https://anchor.example.com/api/admin/seed -H "x-seed-token: $SEED_TOKEN"
+
+# or locally, against the prod DB
 DATABASE_URL='<neon prod url>' npm run seed
 ```
+
+Both replace the corpus. They upsert the 60 demo rows and delete every other row in the five corpus tables, then embed the rows and delete every chunk that was not just written. The route's JSON reply and the `[seed]` log lines give the counts written and removed. Rows and chunks from an older corpus are gone after one successful run.
 
 Two notes on latency.
 

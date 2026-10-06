@@ -24,15 +24,16 @@ Each row is a feature and the file that implements it. HNSW (Hierarchical Naviga
 | Tagged `$queryRaw` (no `*RawUnsafe`), eslint-banned | `src/lib/rag/retriever.ts`, `eslint.config.mjs` |
 | Chunk sanitation (strips control and zero-width characters, collapses whitespace, caps length at 2000) | `src/lib/rag/sanitize.ts` |
 | Idempotent upsert (unique on `sourceType + sourceId`) | `src/lib/rag/embed-writer.ts` |
+| A seed run replaces the corpus: rows and chunks outside the demo set are deleted, one statement each | `src/lib/rag/demo-seeder.ts`, `src/lib/rag/seed-runner.ts` |
 | Bulk backfill script with `--dry` mode | `scripts/embed-backfill.ts` |
 | Deduped `sources[]` provenance array | `src/lib/rag/sources.ts` |
 | Postgres fixed-window rate limiting (20/min IP, 1000/hr global) | `src/lib/rate-limit.ts` |
 | Health endpoint probes DB (`SELECT 1`), returns `{ok, db}`, 503 on fail | `src/app/api/health/route.ts` |
 | Prisma migrations, including `CREATE EXTENSION vector` and the HNSW index | `prisma/migrations/` |
-| 51 tests passing | `tests/*.test.ts` |
+| 54 tests passing | `tests/*.test.ts` |
 
 Test breakdown: retriever 10, rate-limit 10, query-route 9, sources 7, sanitize 6,
-embed-writer 5, retriever-floor 4.
+embed-writer 5, retriever-floor 4, seed-replace 3.
 
 ## Architecture
 
@@ -44,7 +45,8 @@ gets the remaining chunks or a refusal.
 Write path: each entity row goes through its chunker (`chunkForProject`,
 `chunkForBuilder`, `chunkForLocality` and the rest) and is embedded with the same
 OpenAI model. It is then upserted into the `Embedding` table with
-`INSERT ... ON CONFLICT`.
+`INSERT ... ON CONFLICT`. A seed run first deletes corpus rows outside the demo
+set, and after the upserts deletes every chunk it did not write.
 
 Retrieval pipeline (`retrieveChunks(query, k=6)`):
 1. Sanitize and embed the query with `text-embedding-3-small`.

@@ -79,6 +79,8 @@ Open http://localhost:3000/playground and try two queries:
 
 `npm run seed` needs `OPENAI_API_KEY` to embed. Without a key it still seeds the structured rows and tells you to re-run once the key is set.
 
+The seed replaces whatever corpus the database holds. After writing the demo rows it deletes every other row in the five corpus tables, and after embedding them it deletes every chunk it did not just write. Do not point it at a database whose corpus you want to keep.
+
 ## API
 
 `POST /api/query` takes a JSON body `{"q": "..."}`. It returns `chunks`, `refused`, `sources`, `floor` and `maxSimilarity`.
@@ -144,7 +146,7 @@ anchor/
 ├── src/lib/                   # prisma client, openai factory, rate limiter
 ├── prisma/                    # schema + migrations (incl. CREATE EXTENSION vector + HNSW index) + seed.ts
 ├── scripts/                   # embed-backfill
-├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, query-route tests
+├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, query-route, seed-replace tests
 ├── docs/architecture.md       # system architecture and request flows
 ├── docs/CLAIM_AUDIT.md        # every public claim, mapped to the file:line that backs it
 ├── docker-compose.yml         # Postgres + pgvector + app
