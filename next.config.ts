@@ -2,8 +2,10 @@ import type { NextConfig } from 'next'
 
 // Pragmatic CSP: Next injects inline hydration scripts and inline styles, so
 // 'unsafe-inline' is required without a nonce middleware. The playground only
-// talks to its own /api/* routes (connect-src 'self'); Vercel Analytics loads
-// same-origin. Everything else is locked down.
+// calls its own /api/* routes. In production, Vercel Analytics and Speed
+// Insights load their scripts from this site (/_vercel/...); in development they
+// load debug scripts from va.vercel-scripts.com, so script-src and connect-src
+// also allow Vercel's analytics hosts. Everything else is locked down.
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",

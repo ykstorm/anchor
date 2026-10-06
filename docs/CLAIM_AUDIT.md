@@ -34,7 +34,7 @@ artifact that backs it. You can check each row from a fresh clone.
 | Idempotent upsert by `(sourceType, sourceId)` (SPEC) | `prisma/schema.prisma` `@@unique` + `embed-writer.ts` `ON CONFLICT` |
 | A seed run replaces the corpus: rows and chunks outside the demo set are deleted (README, DEPLOY) | `src/lib/rag/demo-seeder.ts` (`removeRowsOutside`), `src/lib/rag/seed-runner.ts` (`removeUnwrittenChunks`); proven by `tests/seed-replace.test.ts` |
 | Per-entity chunk templates (SPEC) | `src/lib/rag/embed-writer.ts`: `chunkForProject/Builder/Locality/Infra/LocationData` |
-| Sensitive builder fields excluded from AI context (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` (no contact/commission fields) |
+| Builder chunks use only the fields in `BuilderAIContext` (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` and `chunkForBuilder`. The `Builder` model has no contact or commission columns at all |
 
 ## Endpoints
 

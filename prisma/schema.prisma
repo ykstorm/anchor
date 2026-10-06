@@ -30,8 +30,9 @@ model Project {
   @@index([builderName])
 }
 
-// Builder trust profile, sensitive fields (contactPhone, contactEmail,
-// commissionRatePct, partnerStatus) are intentionally excluded from AI context.
+// Builder trust profile. chunkForBuilder reads only the fields listed in
+// BuilderAIContext (src/lib/rag/embed-writer.ts), so a new column here does
+// not reach a chunk until it is added there.
 model Builder {
   id                  String   @id @default(cuid())
   builderName         String   @unique
@@ -85,7 +86,8 @@ model LocationData {
 
 // RAG
 // Embedding table, stores OpenAI text-embedding-3-small vectors (1536 dim).
-// Each row is a semantic chunk of an entity, upserted on create/update.
+// Each row is the one chunk built from one corpus row, written by the seed and
+// the backfill script (nothing writes it when a corpus row changes).
 //
 // Score floor: 0.30 cosine similarity, applied uniformly (see SIM_FLOOR in
 // src/lib/rag/retriever.ts). @@unique ensures one embedding per

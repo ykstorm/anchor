@@ -57,7 +57,7 @@ Retrieval pipeline (`retrieveChunks(query, k=6)`):
 
 Embedding pipeline (`chunkFor{Entity}()` per type):
 - `chunkForProject()`: price range in Cr (crore), possession date, amenities, analyst notes
-- `chunkForBuilder()`: trust scores, grade (sensitive fields excluded)
+- `chunkForBuilder()`: trust scores, grade (only the fields in `BuilderAIContext`)
 - `chunkForLocality()`: YoY growth, demand score, avg price/sqft
 - `chunkForInfra()`: infrastructure items with price impact
 - `chunkForLocationData()`: points of interest with category-first phrasing

@@ -42,7 +42,7 @@ returns them to the UI.
 |---|---|---|
 | API handler | `src/app/api/query/route.ts` | POST /api/query: embeds, retrieves, returns chunks or refusal |
 | Retriever | `src/lib/rag/retriever.ts` | Core retrieval: embed the query, search pgvector, filter by floor, return |
-| Embed-writer | `src/lib/rag/embed-writer.ts` | Per-entity upsert functions: chunkForProject, chunkForBuilder, etc. |
+| Embed-writer | `src/lib/rag/embed-writer.ts` | Chunk text templates (chunkForProject, chunkForBuilder and the others) and `upsertEmbedding`, the one function that writes a chunk |
 | Demo seeder | `src/lib/rag/demo-seeder.ts` | Replaces the corpus tables with the synthetic demo set |
 | Seed runner | `src/lib/rag/seed-runner.ts` | Embeds every corpus row, then deletes the chunks it did not write |
 | Prisma client | `src/lib/prisma.ts` | Singleton Prisma client for Next.js |
