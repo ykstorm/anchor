@@ -60,7 +60,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.5.0",
     "dotenv": "^17.2.3",
     "eslint": "^9",
@@ -70,6 +70,10 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "typescript-eslint": "^8.61.1",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "deepmerge-ts": ">=8.0.0",
+    "mysql2": ">=3.23.1"
   }
 }
