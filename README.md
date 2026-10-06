@@ -94,14 +94,21 @@ These two calls run against the live demo:
 curl -X POST https://anchor-iota-ten.vercel.app/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"xkcd 18472 nonsense gibberish"}'
-# response: {"chunks":[],"refused":true,"sources":[],"floor":0.3,"maxSimilarity":0.07}
+# response shape:
+# {"chunks":[],"refused":true,"sources":[],"floor":0.3,"maxSimilarity":<best score, below 0.3>}
 
 # Grounded state (matches the seeded demo corpus)
 curl -X POST https://anchor-iota-ten.vercel.app/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"Which Builder A projects in North Ridge are ready to move in?"}'
-# response: {"chunks":[...],"refused":false,"sources":[{"sourceId":"...","sourceType":"project","similarity":0.7,"chunkCount":2}, ...]}
+# response shape:
+# {"chunks":[{"sourceType":"project","sourceId":"<id>","content":"Project: ...","similarity":<0.3 or more>}, ...],
+#  "refused":false,
+#  "sources":[{"sourceId":"<id>","sourceType":"project","similarity":<that source's best score>,"chunkCount":1}, ...],
+#  "floor":0.3,"maxSimilarity":<best score>}
 ```
+
+The examples show the shape, not captured values, because the scores depend on the corpus and the embedding model. `maxSimilarity` is the best score the search saw before the floor was applied, or `null` when the `Embedding` table is empty. `chunkCount` is always 1 with the current schema: `prisma/schema.prisma` allows one chunk per `(sourceType, sourceId)`, so each source in `sources[]` has exactly one chunk behind it.
 
 The seeded corpus is a synthetic real-estate dataset of invented placeholders: 16 projects, 5 builders, 4 localities, 4 infra items, 31 points of interest (60 rows). On-topic queries about those entities retrieve. Anything else is refused.
 
