@@ -1,1 +1,122 @@
 @import "tailwindcss";
+
+/* Tokens shared with Homesty and the portfolio: bone paper, ink, and one rust
+   accent for links and the page's single action. Green and red mark status
+   only. --line-strong edges the controls at about 3:1 against the panel. */
+:root {
+  color-scheme: light;
+  --ground: #ecebe6;
+  --surface: #f5f4f0;
+  --ink: #17181a;
+  --ink-soft: #5f5e58;
+  --line: #d3d0c7;
+  --line-strong: rgba(23, 24, 26, 0.48);
+  --accent: #9a4a10;
+  --accent-strong: #73360a;
+  --accent-ink: #f5f4f0;
+  --ok: #23784f;
+  --bad: #b23b25;
+  --radius: 4px;
+  --depth: inset 0 1px 0 color-mix(in srgb, var(--accent) 14%, transparent),
+    0 24px 60px -36px rgba(0, 0, 0, 0.5);
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-data: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ground: #0b0c0e;
+    --surface: #111316;
+    --ink: #e9e6de;
+    --ink-soft: #8f8c83;
+    --line: #23262c;
+    --line-strong: rgba(233, 230, 222, 0.38);
+    --accent: #f2a93b;
+    --accent-strong: #ffc266;
+    --accent-ink: #0b0c0e;
+    --ok: #4fbf8a;
+    --bad: #f0745a;
+  }
+}
+
+@layer base {
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    line-height: 1.55;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
+}
+
+@layer components {
+  .page { max-width: 46rem; margin-inline: auto; padding: 24px 16px 64px; }
+  .page a { color: var(--accent); text-underline-offset: 3px; transition: color 150ms ease; }
+  .page a:hover { color: var(--accent-strong); }
+  .page h1 { margin: 16px 0 4px; font-size: 1.5rem; font-weight: 600; }
+  .page h3 { margin: 20px 0 6px; font-size: 0.875rem; font-weight: 600; }
+  .lede, .meta, .field-help, .status { margin: 0; color: var(--ink-soft); }
+  .meta, .field-help, .status { font-size: 0.875rem; }
+  .mono { font-family: var(--font-data); font-size: 0.8125rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  .panel {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--depth);
+  }
+  .panel-title { margin: 0 0 8px; font-size: 1.0625rem; font-weight: 600; }
+
+  .field { display: grid; gap: 6px; }
+  .field-label { font-weight: 600; }
+  .textarea {
+    width: 100%;
+    padding: 8px 10px;
+    resize: vertical;
+    background: var(--ground);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    transition: border-color 150ms ease;
+  }
+  .textarea:hover { border-color: var(--ink-soft); }
+  .button {
+    min-height: 40px;
+    padding: 8px 18px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  .button:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .button:disabled { cursor: progress; opacity: 0.7; }
+  .ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
+  .status[data-tone="ok"] { color: var(--ok); }
+  .status[data-tone="bad"] { color: var(--bad); }
+
+  .empty { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+  .empty-title { margin: 0; font-weight: 600; }
+  .empty-body { margin: 4px 0 0; color: var(--ink-soft); }
+
+  .answer { margin: 0; }
+  .citations { margin: 0; padding-left: 1.5rem; list-style: decimal; font-size: 0.875rem; }
+  .chunk { padding: 10px 8px; border-top: 1px solid var(--line); }
+  .chunk:target { background: var(--ground); }
+  .chunk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0; font-size: 0.8125rem; color: var(--ink-soft); }
+  .chunk-text { margin: 4px 0 0; }
+  .tag { padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--ink); font-size: 0.75rem; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; align-items: baseline; gap: 4px 16px; margin: 12px 0 0; }
+  .facts dt { color: var(--ink-soft); }
+  .facts dd { margin: 0; }
+}

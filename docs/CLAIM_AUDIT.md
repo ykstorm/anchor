@@ -43,7 +43,7 @@ artifact that backs it. You can check each row from a fresh clone.
 | `/api/query` POST (README, DEPLOY) | `src/app/api/query/route.ts` |
 | `/api/query` rate-limited, 415/403/400/429 guards | `src/app/api/query/route.ts` + `src/lib/rate-limit.ts`; tested in `tests/query-route.test.ts`, `tests/rate-limit.test.ts` |
 | `/api/health` probes DB, returns `{ok, db}`, 503 on fail (SPEC, DEPLOY) | `src/app/api/health/route.ts` |
-| `/playground` interactive query UI (README) | `src/app/playground/page.tsx` |
+| `/playground` interactive query UI (README) | `src/app/playground/page.tsx`, `src/app/playground/playground.tsx`; response handling tested in `tests/playground-query.test.ts` |
 
 ## Data / infra
 
