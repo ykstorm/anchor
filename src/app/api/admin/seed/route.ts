@@ -14,13 +14,18 @@ function tokenMatches(provided: string, expected: string): boolean {
   return timingSafeEqual(a, b)
 }
 
-export async function POST(req: NextRequest) {
-  const expected = process.env.SEED_TOKEN
-  const provided = req.headers.get('x-seed-token') ?? ''
-  if (!expected || !tokenMatches(provided, expected)) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+function unauthorized() {
+  return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+}
 
+export async function POST(req: NextRequest) {
+  // Without a token the route is switched off: there is nothing to guess, so
+  // it answers 401 without touching the database.
+  const expected = process.env.SEED_TOKEN
+  if (!expected) return unauthorized()
+
+  // Count the attempt before the token is compared, so wrong guesses use up the
+  // caller's limit too.
   const limit = await enforceSeedRateLimit(req)
   if (!limit.ok) {
     return NextResponse.json(
@@ -28,6 +33,9 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
     )
   }
+
+  const provided = req.headers.get('x-seed-token') ?? ''
+  if (!tokenMatches(provided, expected)) return unauthorized()
 
   try {
     const { seedDemoData } = await import('@/lib/rag/demo-seeder')
