@@ -68,7 +68,7 @@ artifact that backs it. You can check each row from a fresh clone.
 
 | Claim (source) | Backed by |
 |---|---|
-| 63 tests passing (SPEC) | `tests/*.test.ts` |
+| 69 tests passing (SPEC) | `tests/*.test.ts` |
 | `detectAmenityCategories` tested against the real source | `tests/retriever.test.ts` imports from `@/lib/rag/retriever` |
 | Floor cannot be lowered by query text | `tests/retriever-floor.test.ts` |
 | `sources[]` shape + dedup tested | `tests/sources.test.ts`, `tests/query-route.test.ts` |

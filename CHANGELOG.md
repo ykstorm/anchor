@@ -40,6 +40,7 @@ These changes are on main since 0.1.0.
 - The README, `ARCHITECTURE.md`, `SPEC.md`, the design docs, `DEPLOY.md`, `SECURITY.md`, `ROADMAP.md`, `CHANGELOG.md` and `CONTRIBUTING.md` were rewritten in plain English.
 
 ### Fixed
+- The seed route checked its token before the rate limit, so wrong tokens could be tried without limit. It now counts every attempt first, so a caller's guesses end in 429 after 3 an hour. With no `SEED_TOKEN` set it still answers 401 without touching the database.
 - The seed only upserted, so rows and chunks from an older corpus stayed in the database and kept being served. A seed run now replaces the corpus: it deletes corpus rows outside the demo set and chunks it did not write, each in one statement, and logs the counts.
 - A database error in the rate limiter made `/api/query` answer 500. The route now catches it and answers the documented 503, logging `[query] retrieval failed: rate limit check failed`, before any embedding call.
 - The CI workflow now also runs on `v*` tag pushes, so the image publish job can run.
