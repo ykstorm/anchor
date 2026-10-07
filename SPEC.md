@@ -65,7 +65,7 @@ Embedding pipeline (`chunkFor{Entity}()` per type):
 ## Key design decisions
 
 1. Cosine floor over top-K only. pgvector cosine distance is fast and
-   deterministic. The 0.30 floor suits the demo corpus; calibrate it per corpus.
+   deterministic. The 0.30 floor was set by hand and has not been measured against a labelled question set; calibrate it per corpus.
 
 2. Adaptive K vs fixed K. Amenity queries ("nearest schools") need higher
    recall, so they widen K to 10 and boost on-topic location rows. The floor is
