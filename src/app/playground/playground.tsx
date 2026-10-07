@@ -64,7 +64,7 @@ export function Playground({ initialQuery }: { initialQuery: string }) {
               />
             )}
           </Field>
-          <div className="ask-row">
+          <div className="row">
             <Button type="submit" disabled={busy}>
               Search
             </Button>
