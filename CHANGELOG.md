@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 These changes are on main since 0.1.0.
 
 ### Added
+- Plain UI components under `src/components/ui` (Panel, Button, Textarea, Field, StatusLine, EmptyState, ChunkList) and the design tokens in `src/app/globals.css`, shared with the portfolio site (#49).
+- A `not-found` page on the same tokens (#50).
 - `GET /api/health`. It runs `SELECT 1` against the database and returns `{"ok":true,"db":true}`, or 503 with `{"ok":false,"db":false}` when the query fails.
 - A `sources[]` array on `/api/query` responses. It lists each source once, with `sourceId`, `sourceType`, `similarity` and `chunkCount`.
 - `floor` and `maxSimilarity` on `/api/query` responses, so a refusal can be explained.
