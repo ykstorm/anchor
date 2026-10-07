@@ -124,6 +124,21 @@ describe('POST /api/query', () => {
     expect(res.headers.get('retry-after')).toBe('42')
   })
 
+  it('returns 503 (not a 500) when the rate-limit write fails, before any embedding call', async () => {
+    ;(globalThis as Record<string, unknown>).__topic = 'on'
+    enforceQueryRateLimit.mockRejectedValueOnce(new Error('connection refused'))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const res = await POST(makeReq('North Court'))
+    const body = await res.json()
+    expect(res.status).toBe(503)
+    expect(body.error).toBe('Retrieval temporarily unavailable')
+    expect(body.refused).toBeUndefined()
+    expect(logged).toHaveBeenCalledWith('[query] retrieval failed:', 'rate limit check failed')
+    expect(embeddingsCreate).not.toHaveBeenCalled()
+    expect(queryRaw).not.toHaveBeenCalled()
+    logged.mockRestore()
+  })
+
   it('returns 503 (not a refusal) when embedding fails', async () => {
     ;(globalThis as Record<string, unknown>).__topic = 'on'
     embeddingsCreate.mockRejectedValueOnce(new Error('openai down'))

@@ -32,8 +32,9 @@ artifact that backs it. You can check each row from a fresh clone.
 | OpenAI `text-embedding-3-small`, 1536-dim (README, SPEC) | `src/lib/rag/embed-writer.ts` + `prisma/schema.prisma` (`vector(1536)`) |
 | Chunk sanitation on read and write (SPEC) | `src/lib/rag/sanitize.ts` used in `retriever.ts` and `embed-writer.ts`; tested in `tests/sanitize.test.ts` |
 | Idempotent upsert by `(sourceType, sourceId)` (SPEC) | `prisma/schema.prisma` `@@unique` + `embed-writer.ts` `ON CONFLICT` |
+| A seed run replaces the corpus: rows and chunks outside the demo set are deleted (README, DEPLOY) | `src/lib/rag/demo-seeder.ts` (`removeRowsOutside`), `src/lib/rag/seed-runner.ts` (`removeUnwrittenChunks`); proven by `tests/seed-replace.test.ts` |
 | Per-entity chunk templates (SPEC) | `src/lib/rag/embed-writer.ts`: `chunkForProject/Builder/Locality/Infra/LocationData` |
-| Sensitive builder fields excluded from AI context (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` (no contact/commission fields) |
+| Builder chunks use only the fields in `BuilderAIContext` (schema comment) | `src/lib/rag/embed-writer.ts` `BuilderAIContext` and `chunkForBuilder`. The `Builder` model has no contact or commission columns at all |
 
 ## Endpoints
 
@@ -51,7 +52,7 @@ artifact that backs it. You can check each row from a fresh clone.
 | Postgres + pgvector (README, Stack) | `prisma/schema.prisma` `Unsupported("vector(1536)")`, `docker-compose.yml` `pgvector/pgvector:pg16` |
 | HNSW index on `Embedding.embedding` (README, SPEC) | `prisma/migrations/20261001090000_add_hnsw_index/migration.sql` |
 | Prisma migration with `CREATE EXTENSION vector` (SPEC) | `prisma/migrations/00000000000000_init/migration.sql` |
-| `docker-compose up -d` gives a local DB (README quickstart) | `docker-compose.yml` `postgres` service + healthcheck |
+| `docker compose up -d postgres` gives a local Postgres with the `vector` extension and no tables; the quickstart then runs the migrations and the seed from the host (README quickstart) | `docker-compose.yml` `postgres` service + healthcheck, `prisma/init/01-extensions.sql`. A bare `docker compose up -d` also builds and starts the `app` service on port 3000 |
 | Seed loads a 60-row synthetic corpus (README quickstart) | `prisma/seed.ts`, which uses `src/lib/rag/demo-seeder.ts` (16 projects, 5 builders, 4 localities, 4 infra, 31 POIs) |
 | Postgres fixed-window rate limiting | `prisma/migrations/20261001090100_add_rate_limit/migration.sql` + `src/lib/rate-limit.ts` |
 
@@ -67,7 +68,7 @@ artifact that backs it. You can check each row from a fresh clone.
 
 | Claim (source) | Backed by |
 |---|---|
-| 50 tests passing (README, SPEC) | `tests/*.test.ts` |
+| 54 tests passing (SPEC) | `tests/*.test.ts` |
 | `detectAmenityCategories` tested against the real source | `tests/retriever.test.ts` imports from `@/lib/rag/retriever` |
 | Floor cannot be lowered by query text | `tests/retriever-floor.test.ts` |
 | `sources[]` shape + dedup tested | `tests/sources.test.ts`, `tests/query-route.test.ts` |

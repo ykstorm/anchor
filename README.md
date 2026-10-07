@@ -30,7 +30,7 @@ A cosine similarity of 0.12 between the query and the closest chunk is not a bas
 
 Anchor checks a similarity floor first. The floor is a minimum score. Below it, there is no answer to give.
 
-The floor is a property of the corpus, not a universal constant. The default is `0.30`. It separates answerable from unanswerable queries on the seeded demo corpus. A different corpus will want a different number. Find it by comparing the similarity distributions of queries you know are answerable against ones you know are not.
+The floor is a property of the corpus, not a universal constant. The default is `0.30`. It has not been calibrated against the seeded demo corpus or any other (see Not measured below). A different corpus will want a different number. Find it by comparing the similarity distributions of queries you know are answerable against ones you know are not.
 
 ## Architecture overview
 
@@ -41,7 +41,7 @@ Query → Embed → pgvector cosine similarity → {best score ≥ floor?} → Y
 - Cosine floor: a configurable threshold (default 0.30). Below it the result is empty and `refused` is true. The floor is never lowered by the query text.
 - Adaptive K: precision queries use K=6. Amenity queries ask about nearby facilities, such as "schools near North Ridge". They widen to K=10 and boost on-topic location rows, but keep the same floor.
 - Provenance: every chunk carries its `sourceId`. The response includes a de-duplicated `sources[]` array.
-- Failure is not refusal: an embedding or database error raises `RetrievalError` and the route returns 503. It is never reported as an empty "no answer".
+- Failure is not refusal: an embedding or database error returns 503, including a database error in the rate limiter, which runs first. It is never reported as an empty "no answer".
 
 ## Quickstart (clean machine, <5 min)
 
@@ -56,8 +56,10 @@ git clone https://github.com/ykstorm/anchor.git && cd anchor
 #    postgresql://anchor:anchor@localhost:5432/anchor?sslmode=disable
 cp .env.example .env
 
-# 3. Start Postgres + pgvector (creates the `vector` extension on first boot)
-docker-compose up -d
+# 3. Start Postgres + pgvector (creates the `vector` extension on first boot).
+#    Name the service: a bare `docker compose up -d` also builds and starts the
+#    app container on port 3000, the port `npm run dev` needs in step 7.
+docker compose up -d postgres
 
 # 4. Install deps
 npm install
@@ -79,6 +81,8 @@ Open http://localhost:3000/playground and try two queries:
 
 `npm run seed` needs `OPENAI_API_KEY` to embed. Without a key it still seeds the structured rows and tells you to re-run once the key is set.
 
+The seed replaces whatever corpus the database holds. After writing the demo rows it deletes every other row in the five corpus tables, and after embedding them it deletes every chunk it did not just write. Do not point it at a database whose corpus you want to keep.
+
 ## API
 
 `POST /api/query` takes a JSON body `{"q": "..."}`. It returns `chunks`, `refused`, `sources`, `floor` and `maxSimilarity`.
@@ -92,14 +96,21 @@ These two calls run against the live demo:
 curl -X POST https://anchor-iota-ten.vercel.app/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"xkcd 18472 nonsense gibberish"}'
-# response: {"chunks":[],"refused":true,"sources":[],"floor":0.3,"maxSimilarity":0.07}
+# response shape:
+# {"chunks":[],"refused":true,"sources":[],"floor":0.3,"maxSimilarity":<best score, below 0.3>}
 
 # Grounded state (matches the seeded demo corpus)
 curl -X POST https://anchor-iota-ten.vercel.app/api/query \
   -H "Content-Type: application/json" \
   -d '{"q":"Which Builder A projects in North Ridge are ready to move in?"}'
-# response: {"chunks":[...],"refused":false,"sources":[{"sourceId":"...","sourceType":"project","similarity":0.7,"chunkCount":2}, ...]}
+# response shape:
+# {"chunks":[{"sourceType":"project","sourceId":"<id>","content":"Project: ...","similarity":<0.3 or more>}, ...],
+#  "refused":false,
+#  "sources":[{"sourceId":"<id>","sourceType":"project","similarity":<that source's best score>,"chunkCount":1}, ...],
+#  "floor":0.3,"maxSimilarity":<best score>}
 ```
+
+The examples show the shape, not captured values, because the scores depend on the corpus and the embedding model. `maxSimilarity` is the best score the search saw before the floor was applied, or `null` when the `Embedding` table is empty. `chunkCount` is always 1 with the current schema: `prisma/schema.prisma` allows one chunk per `(sourceType, sourceId)`, so each source in `sources[]` has exactly one chunk behind it.
 
 The seeded corpus is a synthetic real-estate dataset of invented placeholders: 16 projects, 5 builders, 4 localities, 4 infra items, 31 points of interest (60 rows). On-topic queries about those entities retrieve. Anything else is refused.
 
@@ -121,6 +132,10 @@ These figures cover the DB-side vector search only (the query plus the round tri
 
 The numbers come from [`.github/workflows/benchmark.yml`](.github/workflows/benchmark.yml). To reproduce them locally, run `node bench/latency-scale.mjs`. It needs Postgres and pgvector via Docker. It uses random vectors and no API key. See the script header.
 
+### Not measured
+
+The only latency numbers in this repo are the database-side benchmark above, and it runs on random vectors, not real embeddings. Its latest run, CI run 37188935917 on 2026-10-04, printed p95 3.45 ms at 100,000 vectors. The p95 of a whole `/api/query` request, which adds the OpenAI embedding call, the rate-limit writes and the network between the app and the database, has never been measured. The 0.30 floor has never been calibrated against a labelled set of answerable and unanswerable questions, so nothing in the repo measures how well it separates them.
+
 ## Stack
 
 | Layer | Choice |
@@ -132,7 +147,7 @@ The numbers come from [`.github/workflows/benchmark.yml`](.github/workflows/benc
 | Deploy | Vercel |
 | License | Apache 2.0 |
 
-It is a small, single-service codebase. It uses no framework beyond Next.js and no managed service. Exact versions are in [package.json](package.json).
+It is a small, single-service codebase with no framework beyond Next.js. It does depend on hosted services: every seeded row and every query not already in the in-memory cache calls the OpenAI embeddings API, and the live demo runs on Vercel with its Postgres on Neon. Locally, Docker replaces Vercel and Neon, but the OpenAI key is still needed. Exact versions are in [package.json](package.json).
 
 ## Project layout
 
@@ -144,7 +159,7 @@ anchor/
 ├── src/lib/                   # prisma client, openai factory, rate limiter
 ├── prisma/                    # schema + migrations (incl. CREATE EXTENSION vector + HNSW index) + seed.ts
 ├── scripts/                   # embed-backfill
-├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, query-route tests
+├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, query-route, seed-replace tests
 ├── docs/architecture.md       # system architecture and request flows
 ├── docs/CLAIM_AUDIT.md        # every public claim, mapped to the file:line that backs it
 ├── docker-compose.yml         # Postgres + pgvector + app
@@ -156,7 +171,7 @@ anchor/
 
 - No LLM generation. Anchor is retrieval-only. Wire it to your model's system prompt yourself.
 - Small demo corpus. It holds 16 projects of synthetic data, not 100k+ documents.
-- Single-stage retrieval. There is no re-ranking and no hybrid retrieval (BM25 keyword scoring combined with vector search).
+- Simple ranking. Results come back in cosine-similarity order. The only re-ranking is a fixed boost that moves matching location rows up for amenity queries (`rerankAmenity` in `src/lib/rag/retriever.ts`). There is no model-based re-ranking and no hybrid retrieval (BM25 keyword scoring combined with vector search).
 
 ## Security and credentials
 

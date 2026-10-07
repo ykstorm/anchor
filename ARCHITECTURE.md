@@ -42,9 +42,9 @@ returns them to the UI.
 |---|---|---|
 | API handler | `src/app/api/query/route.ts` | POST /api/query: embeds, retrieves, returns chunks or refusal |
 | Retriever | `src/lib/rag/retriever.ts` | Core retrieval: embed the query, search pgvector, filter by floor, return |
-| Embed-writer | `src/lib/rag/embed-writer.ts` | Per-entity upsert functions: chunkForProject, chunkForBuilder, etc. |
-| Demo seeder | `src/lib/rag/demo-seeder.ts` | Seeds the synthetic demo corpus into the database |
-| Seed runner | `src/lib/rag/seed-runner.ts` | Orchestrates multi-entity embedding runs |
+| Embed-writer | `src/lib/rag/embed-writer.ts` | Chunk text templates (chunkForProject, chunkForBuilder and the others) and `upsertEmbedding`, the one function that writes a chunk |
+| Demo seeder | `src/lib/rag/demo-seeder.ts` | Replaces the corpus tables with the synthetic demo set |
+| Seed runner | `src/lib/rag/seed-runner.ts` | Embeds every corpus row, then deletes the chunks it did not write |
 | Prisma client | `src/lib/prisma.ts` | Singleton Prisma client for Next.js |
 
 ## Key design decisions
@@ -53,7 +53,7 @@ returns them to the UI.
 
 2. Wider K for amenity queries. Amenity queries ("schools near North Ridge") vary more in wording, so relevant rows score lower. `retrieveChunks` raises K to at least 10 for them (`retriever.ts`, `effectiveK`) and reranks location rows that name the detected amenity (`rerankAmenity`). The 0.30 floor is the same for every query. Only K changes.
 
-3. Idempotent write on (sourceType, sourceId). The backfill script can be re-run safely. `upsertEmbedding` in `src/lib/rag/embed-writer.ts` runs a raw `INSERT ... ON CONFLICT ("sourceType", "sourceId")`, and the `@@unique` constraint in `prisma/schema.prisma` keeps one embedding per pair. Re-running produces the same rows as running once.
+3. Idempotent write on (sourceType, sourceId). The backfill script can be re-run safely. `upsertEmbedding` in `src/lib/rag/embed-writer.ts` runs a raw `INSERT ... ON CONFLICT ("sourceType", "sourceId")`, and the `@@unique` constraint in `prisma/schema.prisma` keeps one embedding per pair. Re-running produces the same rows as running once. A seed run also deletes the chunks it did not write, so a source removed from the corpus stops being served.
 
 ## Retrieval timeout
 

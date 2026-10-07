@@ -1,7 +1,8 @@
-// Seed entrypoint (npm run seed, or the prisma.seed hook). Seeds the 60-row
-// demo corpus, then embeds it into pgvector. The embed step needs OPENAI_API_KEY;
-// without it the rows are still seeded and the embed step is skipped. Idempotent:
-// rows upsert and re-embed on the (sourceType, sourceId) unique key.
+// Seed entrypoint (npm run seed, or the prisma.seed hook). Replaces the corpus
+// with the 60-row demo set, then embeds it into pgvector. Rows outside the demo
+// set are deleted, and so are chunks whose source was not embedded in this run.
+// The embed step needs OPENAI_API_KEY; without it the rows are still seeded and
+// the embed step is skipped. Safe to run again: a second run leaves the same rows.
 import 'dotenv/config'
 import { prisma } from '@/lib/prisma'
 import { seedDemoData } from '@/lib/rag/demo-seeder'
@@ -9,8 +10,7 @@ import { embedAndStore } from '@/lib/rag/seed-runner'
 
 async function main() {
   console.log('[seed] seeding structured corpus…')
-  const loaded = await seedDemoData()
-  console.log('[seed] structured rows upserted:', loaded)
+  await seedDemoData()
 
   if (!process.env.OPENAI_API_KEY) {
     console.warn(
@@ -22,8 +22,7 @@ async function main() {
   }
 
   console.log('[seed] embedding corpus into pgvector (OpenAI text-embedding-3-small)…')
-  const embedded = await embedAndStore()
-  console.log('[seed] embeddings written:', embedded)
+  await embedAndStore()
 }
 
 main()

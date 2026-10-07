@@ -1,6 +1,8 @@
 # =====================================================================
-# Anchor — multi-stage Dockerfile
-# Builds a production Next.js standalone image, ~120 MB final.
+# Anchor multi-stage Dockerfile
+# Builds a production Next.js standalone image. Its size has not been measured;
+# the runner stage copies the builder's full node_modules, dev dependencies
+# included, so it is larger than the standalone server alone.
 # =====================================================================
 
 # ---------- Stage 1: deps ----------
@@ -48,7 +50,9 @@ COPY --from=builder --chown=anchor:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=anchor:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=anchor:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Embed-writer scripts (so `docker compose exec app npm run seed` works)
+# scripts/ and the full node_modules. This does not make the seed runnable in
+# the image: prisma/seed.ts imports src/, which is not copied. Seed from the
+# host instead (DEPLOY.md, Local dev).
 COPY --from=builder --chown=anchor:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=anchor:nodejs /app/node_modules ./node_modules
 
