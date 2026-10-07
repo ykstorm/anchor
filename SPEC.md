@@ -30,7 +30,7 @@ Each row is a feature and the file that implements it. HNSW (Hierarchical Naviga
 | Postgres fixed-window rate limiting (20/min IP, 1000/hr global) | `src/lib/rate-limit.ts` |
 | Health endpoint probes DB (`SELECT 1`), returns `{ok, db}`, 503 on fail | `src/app/api/health/route.ts` |
 | Prisma migrations, including `CREATE EXTENSION vector` and the HNSW index | `prisma/migrations/` |
-| 54 tests passing | `tests/*.test.ts` |
+| 63 tests passing | `tests/*.test.ts` |
 
 Test breakdown: retriever 10, rate-limit 10, query-route 9, sources 7, sanitize 6,
 embed-writer 5, retriever-floor 4, seed-replace 3.

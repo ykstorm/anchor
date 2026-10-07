@@ -3,7 +3,7 @@ import { Playground } from './playground'
 
 export const metadata: Metadata = { title: 'Playground' }
 
-// The home page links here with ?q= to fill the box. It does not search on load.
+// A link may carry ?q= to fill the box. The page does not search on load.
 export default async function PlaygroundPage({
   searchParams,
 }: {
