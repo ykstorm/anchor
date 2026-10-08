@@ -69,6 +69,7 @@ To use a custom domain:
 
 1. In Vercel, open Project, then Settings, then Domains, and add `anchor.example.com`.
 2. In your DNS, add a CNAME record named `anchor` that points to `cname.vercel-dns.com`. A CNAME is a DNS record that makes one name an alias for another.
+3. Change `SITE_URL` in `src/lib/site.ts` to the new address and change `homepage` in `package.json` to match (a test checks they agree). The canonical links, `/robots.txt` and `/sitemap.xml` use that address, and they point at `anchor-iota-ten.vercel.app` until you do.
 
 To seed the demo corpus, call the seed route on the deployed app, or run the seed locally against the production database:
 

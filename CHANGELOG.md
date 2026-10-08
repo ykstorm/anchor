@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 These changes are on main since 0.1.0.
 
 ### Added
+- `/robots.txt` and `/sitemap.xml`, from `src/app/robots.ts` and `src/app/sitemap.ts`. Crawlers may read the site but not `/api/`, and the sitemap lists the home page and the playground. Both use the production URL in `src/lib/site.ts`.
+- A `metadataBase` and a canonical link in the root layout. The canonical is the address of each page itself, so `/playground?q=...` names `/playground` as canonical.
 - Plain UI components under `src/components/ui` (Panel, Button, Textarea, Field, StatusLine, EmptyState, ChunkList) and the design tokens in `src/app/globals.css`, shared with the portfolio site (#49).
 - A `not-found` page on the same tokens (#50).
 - `GET /api/health`. It runs `SELECT 1` against the database and returns `{"ok":true,"db":true}`, or 503 with `{"ok":false,"db":false}` when the query fails.

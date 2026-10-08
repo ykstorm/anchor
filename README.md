@@ -155,12 +155,13 @@ It is a small, single-service codebase with no framework beyond Next.js. It does
 anchor/
 ├── src/app/api/               # API routes (query, health, admin/seed)
 ├── src/app/playground/        # /playground: interactive query UI
+├── src/app/robots.ts          # /robots.txt; sitemap.ts next to it is /sitemap.xml
 ├── src/components/ui/         # panel, button, field, status line and chunk list used by the playground
 ├── src/lib/rag/               # retriever, embed-writer, sources, sanitize, demo-seeder, seed-runner
-├── src/lib/                   # prisma client, openai factory, rate limiter, client address
+├── src/lib/                   # prisma client, openai factory, rate limiter, client address, site URL
 ├── prisma/                    # schema + migrations (incl. CREATE EXTENSION vector + HNSW index) + seed.ts
 ├── scripts/                   # embed-backfill
-├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, client-ip, query-route, seed-replace, playground-query tests
+├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, client-ip, query-route, seed-replace, playground-query, seo-routes tests
 ├── docs/architecture.md       # system architecture and request flows
 ├── docs/CLAIM_AUDIT.md        # every public claim, mapped to the file:line that backs it
 ├── docker-compose.yml         # Postgres + pgvector + app
