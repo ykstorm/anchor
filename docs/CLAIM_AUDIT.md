@@ -61,8 +61,8 @@ artifact that backs it. You can check each row from a fresh clone.
 | Claim (source) | Backed by |
 |---|---|
 | Next.js ^16.3 (README Stack, SPEC) | `package.json` `"next": "^16.3.0"` |
-| Prisma 7 (README, SPEC) | `package.json` `"@prisma/client": "^7.5.0"` |
-| React 19.2.7 (SPEC) | `package.json` `"react": "19.2.7"` |
+| Prisma 7 (README, SPEC) | `package.json` `"@prisma/client": "^7.10.0"` |
+| React 19.3.0 (SPEC) | `package.json` `"react": "19.3.0"` |
 
 ## Tests
 

@@ -161,7 +161,7 @@ anchor/
 ├── src/lib/                   # prisma client, openai factory, rate limiter, client address, site URL
 ├── prisma/                    # schema + migrations (incl. CREATE EXTENSION vector + HNSW index) + seed.ts
 ├── scripts/                   # embed-backfill
-├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, client-ip, query-route, seed-replace, playground-query, seo-routes tests
+├── tests/                     # retriever, embed-writer, sources, sanitize, rate-limit, client-ip, query-route, seed-route, seed-replace, playground-query, seo-routes tests
 ├── docs/architecture.md       # system architecture and request flows
 ├── docs/CLAIM_AUDIT.md        # every public claim, mapped to the file:line that backs it
 ├── docker-compose.yml         # Postgres + pgvector + app
