@@ -40,6 +40,7 @@ These changes are on main since 0.1.0.
 - The README, `ARCHITECTURE.md`, `SPEC.md`, the design docs, `DEPLOY.md`, `SECURITY.md`, `ROADMAP.md`, `CHANGELOG.md` and `CONTRIBUTING.md` were rewritten in plain English.
 
 ### Fixed
+- The rate limiter took the left-most `X-Forwarded-For` entry as the caller, which is the one a caller writes, so adding a fake address to the header gave a fresh bucket on every request. It now counts from the right: `TRUST_PROXY_HOPS` is the number of proxies in front of the app (default 1, which is right for Vercel), and the caller is that many entries from the right. A missing or malformed header, or a bad entry, now shares one bucket instead of falling back to a forgeable value. `X-Real-IP` is no longer read.
 - The seed route checked its token before the rate limit, so wrong tokens could be tried without limit. It now counts every attempt first, so a caller's guesses end in 429 after 3 an hour. With no `SEED_TOKEN` set it still answers 401 without touching the database.
 - The seed only upserted, so rows and chunks from an older corpus stayed in the database and kept being served. A seed run now replaces the corpus: it deletes corpus rows outside the demo set and chunks it did not write, each in one statement, and logs the counts.
 - A database error in the rate limiter made `/api/query` answer 500. The route now catches it and answers the documented 503, logging `[query] retrieval failed: rate limit check failed`, before any embedding call.

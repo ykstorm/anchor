@@ -8,7 +8,6 @@ const { queryRaw, executeRaw } = vi.hoisted(() => ({
 vi.mock('@/lib/prisma', () => ({ prisma: { $queryRaw: queryRaw, $executeRaw: executeRaw } }))
 
 import {
-  clientIp,
   ipHash,
   hitRateLimit,
   enforceQueryRateLimit,
@@ -24,16 +23,6 @@ beforeEach(() => {
   executeRaw.mockClear()
   // Skip the opportunistic cleanup branch deterministically.
   vi.spyOn(Math, 'random').mockReturnValue(0.99)
-})
-
-describe('clientIp', () => {
-  it('uses the first X-Forwarded-For hop', () => {
-    expect(clientIp(reqWith({ 'x-forwarded-for': '203.0.113.9, 10.0.0.1' }))).toBe('203.0.113.9')
-  })
-  it('falls back to X-Real-IP then a constant', () => {
-    expect(clientIp(reqWith({ 'x-real-ip': '198.51.100.7' }))).toBe('198.51.100.7')
-    expect(clientIp(reqWith({}))).toBe('0.0.0.0')
-  })
 })
 
 describe('ipHash', () => {
@@ -78,6 +67,16 @@ describe('enforceQueryRateLimit', () => {
     const res = await enforceQueryRateLimit(reqWith({ 'x-forwarded-for': '203.0.113.9' }))
     expect(res.ok).toBe(false)
     expect(queryRaw).toHaveBeenCalledTimes(1)
+  })
+
+  it('keys the bucket on the trusted address, not on a prepended one', async () => {
+    queryRaw.mockResolvedValue([{ count: 1 }])
+    await enforceQueryRateLimit(reqWith({ 'x-forwarded-for': '1.1.1.1, 203.0.113.9' }))
+    await enforceQueryRateLimit(reqWith({ 'x-forwarded-for': '2.2.2.2, 203.0.113.9' }))
+    const bucketOf = (call: number) => queryRaw.mock.calls[call][1]
+    // calls 0 and 2 are the per-IP windows, 1 and 3 the global window
+    expect(bucketOf(0)).toBe(bucketOf(2))
+    expect(bucketOf(1)).toBe(bucketOf(3))
   })
 
   it('blocks on the global window (1000/hr)', async () => {

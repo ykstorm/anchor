@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
+import { clientIp } from '@/lib/client-ip'
 
 // Postgres-backed fixed-window rate limiter.
 //
@@ -26,13 +27,6 @@ export type RateLimitResult = {
   ok: boolean
   /** Seconds until the offending window resets (for the Retry-After header). */
   retryAfter: number
-}
-
-/** First hop in X-Forwarded-For, else X-Real-IP, else a constant fallback. */
-export function clientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0].trim()
-  return req.headers.get('x-real-ip')?.trim() || '0.0.0.0'
 }
 
 /** Privacy-preserving caller id: sha256(ip + UTC date) truncated to 16 hex. */
