@@ -54,6 +54,8 @@ Then set up Vercel.
    OPENAI_API_KEY    = sk-...
    SEED_TOKEN        = <long random string>   # optional, turns on POST /api/admin/seed
    ```
+
+   `TRUST_PROXY_HOPS` is optional and its default of 1 is correct on Vercel, so leave it unset. See [Client address and rate limits](#client-address-and-rate-limits).
 4. Override the build command with `npx prisma generate && npx prisma migrate deploy && next build`.
 5. Deploy.
 
@@ -101,6 +103,17 @@ docker push <registry>/anchor:<version>
 CI's Publish image job pushes `ghcr.io/ykstorm/anchor:latest` and `ghcr.io/ykstorm/anchor:<tag>` only when a `v*` tag is pushed (`.github/workflows/ci.yml`). No tag has been pushed yet, so that image does not exist. After the first tagged release, check the package's visibility in the GitHub package settings before pointing a host at it.
 
 The image runs no migrations. Before you start it, run `npx prisma migrate deploy` from the repo with `DATABASE_URL` set to the target database, then seed it once.
+
+### Client address and rate limits
+
+The rate limiter keys each caller by the address in `X-Forwarded-For`. That header is a comma-separated list. Each proxy adds the address it received the request from to the right-hand end, and a caller can send the header with any entries it likes, which stay on the left. So the left-most entry cannot be trusted, and the app counts from the right instead. `TRUST_PROXY_HOPS` is the number of proxies in front of the app that add an entry, and the caller's address is that many entries from the right (`src/lib/client-ip.ts`).
+
+- The default is 1, the right-most entry. That is right for Vercel: its documentation says it overwrites `X-Forwarded-For` with the client's address and does not forward external values, so the header holds one entry and it is the one Vercel wrote. Leave `TRUST_PROXY_HOPS` unset there.
+- Behind a CDN and then a load balancer that both append to the header, set `TRUST_PROXY_HOPS=2`. Count only the proxies that append to the header.
+- The value must be a whole number of 1 or more. Anything else is read as 1.
+- If the header is missing, has fewer entries than the setting, or the entry at that position is not an IP address, the request gets the shared address `0.0.0.0` and so shares one rate-limit bucket with every other such request. The app never falls back to an entry further left.
+- `X-Real-IP` is not read, because outside Vercel a caller can send it.
+- With no proxy in front of the app, as with the compose app container on port 3000, the caller controls the whole header, so the limits stop honest clients but not a determined one. Put the app behind a proxy before you rely on them.
 
 ### Fly.io
 
