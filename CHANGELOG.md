@@ -38,7 +38,7 @@ These changes are on main since 0.1.0.
 - `.env.example` uses `REPLACE_ME` placeholders. `docker-compose.yml` reads the Postgres and pgAdmin credentials from environment variables with local defaults. `.gitignore` covers `.env.*` except `.env.example`.
 - `.env.example` no longer lists `DIRECT_URL` and `NEXT_PUBLIC_DEMO_MODE`, which nothing reads, and now lists `SEED_TOKEN`, which the seed route requires.
 - Next.js was upgraded to 16.3.x, and `npm audit fix` was applied.
-- Unit tests grew from 15 to 54.
+- Unit tests grew from 15 to 102 (12 test files, counted on 2026-10-08).
 - The README, `ARCHITECTURE.md`, `SPEC.md`, the design docs, `DEPLOY.md`, `SECURITY.md`, `ROADMAP.md`, `CHANGELOG.md` and `CONTRIBUTING.md` were rewritten in plain English.
 
 ### Fixed

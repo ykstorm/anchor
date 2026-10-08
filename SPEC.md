@@ -85,7 +85,7 @@ Embedding pipeline (`chunkFor{Entity}()` per type):
 
 ## Tech stack (verified from package.json)
 
-- Next.js ^16.3, React 19.2.7, TypeScript strict
+- Next.js ^16.3, React 19.3.0, TypeScript strict
 - Prisma 7 + `@prisma/adapter-neon` (Neon HTTP) / `@prisma/adapter-pg` (local Docker Postgres)
 - pgvector (PostgreSQL extension)
 - OpenAI `text-embedding-3-small`
