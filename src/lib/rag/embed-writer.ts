@@ -12,7 +12,7 @@ function countTokens(text: string): number {
 }
 
 // Chunk templates
-export function chunkForProject(p: {
+type ProjectChunkInput = {
   id: string
   projectName: string
   builderName: string
@@ -26,25 +26,45 @@ export function chunkForProject(p: {
   analystNote: string | null
   priceNote: string | null
   decisionTag: string | null
-}): string {
-  const hasRupeeBand = p.minPrice > 0 && p.maxPrice > 0
-  const priceRange = hasRupeeBand
-    ? `₹${(p.minPrice / 1e7).toFixed(1)}Cr – ₹${(p.maxPrice / 1e7).toFixed(1)}Cr`
-    : null
+}
+
+/** The price band in crore, or null unless both ends are known. */
+function rupeeBand(minPrice: number, maxPrice: number): string | null {
+  if (minPrice > 0 && maxPrice > 0) {
+    return `₹${(minPrice / 1e7).toFixed(1)}Cr – ₹${(maxPrice / 1e7).toFixed(1)}Cr`
+  }
+  return null
+}
+
+function configurationLine(configurations: string | null, priceRange: string | null): string {
+  const configs = `Configurations: ${configurations ?? 'not specified'}.`
+  return priceRange ? `${configs} Price range: ${priceRange}.` : configs
+}
+
+function amenityList(amenities: string[]): string {
+  return amenities.length > 0 ? amenities.join(', ') : 'not listed'
+}
+
+/** The optional notes, in the order they are written; empty ones are left out. */
+const PROJECT_NOTES = [
+  ['honestConcern', 'Honest concern'],
+  ['analystNote', 'Analyst note'],
+  ['priceNote', 'Price note'],
+  ['decisionTag', 'Decision tag'],
+] as const
+
+function projectNotes(p: ProjectChunkInput): string[] {
+  return PROJECT_NOTES.filter(([field]) => p[field]).map(([field, label]) => `${label}: ${p[field]}`)
+}
+
+export function chunkForProject(p: ProjectChunkInput): string {
   const possession = p.possessionDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-  const amenityList = p.amenities.length > 0 ? p.amenities.join(', ') : 'not listed'
-  const configLine = priceRange
-    ? `Configurations: ${p.configurations ?? 'not specified'}. Price range: ${priceRange}.`
-    : `Configurations: ${p.configurations ?? 'not specified'}.`
   const lines: string[] = [
     `Project: ${p.projectName} by ${p.builderName}, located in ${p.microMarket}.`,
-    configLine,
-    `Possession: ${possession}. Amenities: ${amenityList}.`,
+    configurationLine(p.configurations, rupeeBand(p.minPrice, p.maxPrice)),
+    `Possession: ${possession}. Amenities: ${amenityList(p.amenities)}.`,
+    ...projectNotes(p),
   ]
-  if (p.honestConcern) lines.push(`Honest concern: ${p.honestConcern}`)
-  if (p.analystNote) lines.push(`Analyst note: ${p.analystNote}`)
-  if (p.priceNote) lines.push(`Price note: ${p.priceNote}`)
-  if (p.decisionTag) lines.push(`Decision tag: ${p.decisionTag}`)
   return lines.join(' ')
 }
 

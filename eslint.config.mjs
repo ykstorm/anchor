@@ -22,5 +22,14 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // Fail CI on any source function with 15 or more branches; split it
+    // instead. Tests are left out.
+    files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
+    ignores: ['tests/**'],
+    rules: {
+      complexity: ['error', { max: 14 }],
+    },
   }
 )
